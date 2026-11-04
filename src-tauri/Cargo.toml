@@ -1,0 +1,57 @@
+[package]
+name = "kojoomail"
+version = "0.2.2"
+description = "Kojoo Mail - 多邮箱 + AI 的桌面邮件客户端"
+authors = ["Eko"]
+license = "AGPL-3.0-or-later"
+edition = "2021"
+
+[lib]
+name = "kojoomail_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
+futures = "0.3"
+async-imap = { version = "0.10", default-features = false, features = ["runtime-tokio"] }
+tokio-native-tls = "0.3"
+native-tls = "0.2"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1", "tokio1-native-tls", "builder", "hostname"] }
+mail-parser = "0.9"
+mail-builder = "0.3"
+rusqlite = { version = "0.31", features = ["bundled"] }
+url = "2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls", "system-proxy"] }
+sha2 = "0.10"
+base64 = "0.22"
+getrandom = "0.3"
+keyring = { version = "3", features = ["windows-native", "apple-native"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+anyhow = "1"
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
+dirs = "5"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# 和 tauri/wry 同版本，不额外编译：用来在缩到托盘时让 WebView2 降内存
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Shell"] }
+# 读系统代理设置（reqwest 跟随系统代理时已经编进来了）
+windows-registry = "0.6"

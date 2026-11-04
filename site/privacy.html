@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>隐私政策 · Kojoo Mail</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<main class="wrap doc">
+  <header class="top">
+    <a class="back" href="./"><img class="logo" src="icon.png" alt=""><span class="name">Kojoo Mail</span></a>
+  </header>
+
+  <h1>隐私政策</h1>
+  <p class="meta">最后更新：2026 年 10 月 20 日</p>
+
+  <p>Kojoo Mail（以下称「本软件」）是运行在你自己 Windows 电脑上的邮件客户端。本软件没有自己的服务器，开发者收不到、也不保存你的任何邮件、账号或使用数据。</p>
+
+  <h2>1. 本软件访问哪些数据</h2>
+  <ul>
+    <li><b>邮件</b>：你添加的邮箱里的邮件（标题、正文、附件、联系人、文件夹），通过 IMAP 从邮件服务商下载到本机；你写的信通过 SMTP 由你的邮件服务商发出。</li>
+    <li><b>登录凭据</b>：邮箱密码 / 授权码，或一键登录得到的授权令牌。</li>
+    <li><b>AI 配置</b>：你自己填写的模型服务地址和密钥（可选）。</li>
+  </ul>
+
+  <h2>2. 数据存在哪里</h2>
+  <ul>
+    <li>邮件缓存、设置、待办存在你电脑的本地数据目录（<code>%APPDATA%\KojooMail</code>）。</li>
+    <li>密码、授权令牌、AI 密钥存在 Windows 凭据管理器（由系统加密），不写进本地数据库。</li>
+    <li>这些数据不会上传到开发者或任何第三方，除了下面第 3、4 条列出的情况。</li>
+  </ul>
+
+  <h2>3. Google 账号数据（Gmail）</h2>
+  <p>使用「用 Google 登录」时，本软件请求 <code>https://mail.google.com/</code> 权限，以及你的邮箱地址（openid、email）。用途只有一个：让你在本软件里收取、阅读、整理和发送你自己的 Gmail 邮件。</p>
+  <ul>
+    <li>授权令牌只保存在你的电脑上，只用于直接连接 Google 的邮件服务器（imap.gmail.com、smtp.gmail.com）。</li>
+    <li>不用于广告，不出售，不用于训练任何 AI 模型，开发者不会读取你的邮件。</li>
+    <li>Kojoo Mail 对从 Google API 获得的信息的使用和传输，遵守 <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API 服务用户数据政策</a>，包括其中的「有限使用」（Limited Use）要求。</li>
+    <li>你可以随时在 <a href="https://myaccount.google.com/permissions">Google 账号的第三方访问权限</a>页面撤销授权。</li>
+  </ul>
+
+  <h2>4. AI 功能（可选）</h2>
+  <ul>
+    <li>AI 默认不工作，只有在你自己填写模型服务地址和密钥后才会启用。</li>
+    <li>启用后，为了生成摘要、分类、待办或回复草稿，本软件会把相关邮件的内容发送给<b>你配置的那个</b>模型服务，按该服务自己的隐私条款处理。开发者不经手这些内容。</li>
+    <li>每个邮箱都可以单独设为「不用 AI」，这个邮箱的内容就不会发给任何模型服务。</li>
+    <li>来自 Google 账号的邮件内容只会在你开启 AI 时、为了上面这些由你使用的功能发给你选择的模型服务，不会用于其他目的。</li>
+  </ul>
+
+  <h2>5. 网络连接</h2>
+  <p>本软件只连接：你的邮件服务商的服务器、一键登录时的 Google / Microsoft 登录服务、Outlook 账号发信用的 Microsoft Graph 接口、你配置的 AI 服务，以及每天一次检查新版本（mail.songxxai.com，只下载版本信息，不上传任何数据）。本软件没有统计、追踪或广告代码。如果你的系统设置了代理，本软件会通过该代理连接。</p>
+
+  <h2>6. 删除数据</h2>
+  <ul>
+    <li>在本软件「设置 → 账号」里删除一个邮箱，会删除它在本机的邮件缓存和保存的凭据。</li>
+    <li>卸载本软件后，可以手动删除 <code>%APPDATA%\KojooMail</code> 文件夹清除全部本地数据。</li>
+    <li>Google 授权可在上面第 3 条的页面撤销。</li>
+  </ul>
+
+  <h2>7. 变更与联系</h2>
+  <p>本政策如有变化，会更新本页面和顶部的日期。有问题请联系 <a href="mailto:eko@kojoo.co">eko@kojoo.co</a>。</p>
+
+  <hr>
+
+  <h1 class="en-h">Privacy Policy</h1>
+  <p class="meta">Last updated: October 20, 2026</p>
+
+  <p>Kojoo Mail ("the app") is an email client that runs on your own Windows computer. The app has no servers of its own; the developer does not receive or store any of your mail, account or usage data.</p>
+
+  <h2>1. Data the app accesses</h2>
+  <ul>
+    <li><b>Email</b>: messages in the mailboxes you add (subjects, bodies, attachments, contacts, folders), downloaded to your computer over IMAP; mail you write is sent by your provider over SMTP.</li>
+    <li><b>Credentials</b>: mailbox passwords / app passwords, or OAuth tokens from one-click sign-in.</li>
+    <li><b>AI settings</b> (optional): the model endpoint and API key you enter.</li>
+  </ul>
+
+  <h2>2. Where data is stored</h2>
+  <p>Mail cache, settings and to-dos are stored locally in <code>%APPDATA%\KojooMail</code>. Passwords, OAuth tokens and AI keys are stored in Windows Credential Manager (encrypted by the OS). None of this is uploaded to the developer or any third party, except as described in sections 3 and 4.</p>
+
+  <h2>3. Google user data (Gmail)</h2>
+  <p>When you use "Sign in with Google", the app requests the <code>https://mail.google.com/</code> scope and your email address (openid, email), solely so you can receive, read, organise and send your own Gmail messages in the app.</p>
+  <ul>
+    <li>Tokens are stored only on your computer and used only to connect directly to Google's mail servers (imap.gmail.com, smtp.gmail.com).</li>
+    <li>Google user data is not used for advertising, not sold, not used to train AI models, and is not read by the developer.</li>
+    <li>Kojoo Mail's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</li>
+    <li>You can revoke access at any time at <a href="https://myaccount.google.com/permissions">Google Account third-party access</a>.</li>
+  </ul>
+
+  <h2>4. AI features (optional)</h2>
+  <p>AI is off unless you enter your own model endpoint and API key. When enabled, the content of relevant messages is sent to the model provider <b>you configured</b> to produce summaries, categories, to-dos or reply drafts, and is handled under that provider's terms; the developer never receives it. Each mailbox can be set to "No AI", in which case its content is never sent to any model provider. Content from Google accounts is sent to your chosen provider only when you enable AI and only to provide these user-facing features.</p>
+
+  <h2>5. Network connections</h2>
+  <p>The app connects only to your mail providers' servers, Google / Microsoft sign-in services during one-click sign-in, Microsoft Graph for sending from Outlook accounts, the AI service you configure, and a daily update check (mail.songxxai.com; it only downloads version info and uploads nothing). It contains no analytics, tracking or advertising code. If a system proxy is configured, connections go through it.</p>
+
+  <h2>6. Deleting data</h2>
+  <p>Removing a mailbox in Settings → Accounts deletes its local cache and stored credentials. After uninstalling, delete the <code>%APPDATA%\KojooMail</code> folder to remove all local data. Google access can be revoked as described in section 3.</p>
+
+  <h2>7. Changes and contact</h2>
+  <p>Changes to this policy will be posted on this page with a new date. Questions: <a href="mailto:eko@kojoo.co">eko@kojoo.co</a>.</p>
+</main>
+</body>
+</html>

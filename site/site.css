@@ -1,0 +1,32 @@
+:root {
+  --paper: #F7F7F5; --card: #FFFFFF; --ink: #0F1C2A; --sec: #575D66; --line: rgba(15, 28, 42, .12); --accent: #D4441F; --navy: #1B4A80;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #14181E; --card: #1E242D; --ink: #ECE7DD; --sec: #A8A398; --line: rgba(236, 231, 221, .11); --navy: #9DBFEE; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.7 "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif; }
+a { color: var(--navy); }
+.wrap { max-width: 880px; margin: 0 auto; padding: 32px 16px 56px; }
+.doc { max-width: 760px; }
+.top { display: flex; align-items: center; gap: 10px; margin-bottom: 48px; }
+.top .back { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.logo { width: 30px; height: 30px; display: block; }
+.name { font-weight: 600; }
+.hero h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.2; letter-spacing: -.02em; margin: 0 0 16px; }
+.lead { font-size: 17px; color: var(--sec); margin: 0 0 10px; max-width: 680px; }
+.en { color: var(--sec); font-size: .92em; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 44px 0; }
+.card { background: var(--card); border-radius: 12px; padding: 18px 20px; box-shadow: 0 0 0 .5px var(--line), 0 1px 2px rgba(15, 28, 42, .05); }
+.card h2 { font-size: 16px; margin: 0 0 6px; }
+.card p { margin: 0 0 6px; font-size: 14px; }
+.foot { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 14px; color: var(--sec); border-top: .5px solid var(--line); padding-top: 18px; }
+.doc h1 { font-size: 30px; letter-spacing: -.02em; margin: 0 0 4px; }
+.doc .en-h { margin-top: 8px; }
+.doc .meta { color: var(--sec); font-size: 13px; margin: 0 0 24px; }
+.doc h2 { font-size: 17px; margin: 28px 0 6px; }
+.doc ul { padding-left: 20px; }
+.doc li { margin: 4px 0; }
+.doc code { font: 13px "Cascadia Mono", Consolas, monospace; background: var(--card); padding: 1px 5px; border-radius: 4px; box-shadow: 0 0 0 .5px var(--line); word-break: break-all; }
+.doc hr { border: 0; border-top: .5px solid var(--line); margin: 48px 0; }

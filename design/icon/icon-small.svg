@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 小尺寸版（16/24/32 像素用）：同一个火漆信封，去掉纸纹、阴影和印面 k，折线加粗、火漆放大，缩小后还认得出 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F8F4EB"/>
+      <stop offset="1" stop-color="#E3D9C5"/>
+    </linearGradient>
+    <radialGradient id="wax" cx="0.4" cy="0.36" r="0.72">
+      <stop offset="0" stop-color="#E85F39"/>
+      <stop offset="0.6" stop-color="#C63E1F"/>
+      <stop offset="1" stop-color="#9A2A13"/>
+    </radialGradient>
+    <clipPath id="body"><rect x="64" y="64" width="896" height="896" rx="200"/></clipPath>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <polyline points="40,250 512,590 984,250" fill="none" clip-path="url(#body)" stroke="#8A7350" stroke-opacity="0.55" stroke-width="56" stroke-linejoin="round"/>
+  <circle cx="512" cy="590" r="230" fill="url(#wax)"/>
+  <rect x="66" y="66" width="892" height="892" rx="198" fill="none" stroke="#5A4A30" stroke-opacity="0.28" stroke-width="10"/>
+</svg>
