@@ -1,23 +1,110 @@
-# Kojoo Mail
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.jpg">
+  <img alt="Kojoo Mail：所有邮箱，一个收件箱" src="docs/images/hero-light.jpg">
+</picture>
 
-所有邮箱，一个收件箱。多账号统一收发 + AI 批注、待办、起草回复，邮件只存在你自己的电脑上。
+<p align="center">
+  <a href="https://mail.songxxai.com/kojoomail/"><b>下载</b></a> ·
+  <a href="#能做什么">功能</a> ·
+  <a href="#隐私">隐私</a> ·
+  <a href="#从源码编译">从源码编译</a> ·
+  <a href="#english">English</a>
+</p>
 
-Windows 10/11 · macOS（Apple 芯片）· 下载：https://mail.songxxai.com/kojoomail/
+<p align="center">
+  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%2F%2011-1B4A80?style=flat-square">
+  <img alt="macOS Apple Silicon" src="https://img.shields.io/badge/macOS-Apple%20芯片-1B1712?style=flat-square">
+  <img alt="License AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-C63E1F?style=flat-square">
+  <img alt="Tauri 2 + Rust" src="https://img.shields.io/badge/Tauri%202-Rust%20%2B%20React-6B5F4E?style=flat-square">
+</p>
+
+---
+
+每天在 QQ 邮箱、公司邮箱、Gmail、Outlook 之间来回切，重要的询盘被通知和广告淹掉，回一封英文邮件要先翻译再斟酌——**Kojoo Mail 把这些合到一个窗口里**：所有账号的邮件按时间排在一起，AI 先帮你读一遍，告诉你哪封要紧、要做什么、可以怎么回。
+
+它是一个桌面软件，邮件只存在你自己的电脑上。AI 用你自己的密钥，不经过我们的服务器。
 
 ## 能做什么
 
-- **账号**：QQ / 网易 / 126（授权码）、Gmail、Outlook（一键登录，或 Gmail 应用专用密码）、iCloud、kojoo.co、其他 IMAP 邮箱
-- **统一收件箱**：所有账号按时间排在一起，回复时自动用对的身份；智能视图有重点、待办、稍后处理、草稿、已发送
-- **AI**（任何 OpenAI 兼容接口，填你自己的密钥）：摘要、分类、标重点、提取要点和待办、建议回复、改写/翻译。AI 只起草，不替你发信；可以按账号关掉 AI
-- **写信**支持 Markdown，点发送后几秒内可撤销
-- **网络**：跟随系统代理连邮件服务器（国内用 Gmail 不用开全局）
-- **省资源**：每个账号一条连接，有推送就不轮询，空闲时几乎不占 CPU，常驻内存约 100MB
+### 一个收件箱，装下所有邮箱
+
+QQ、网易 163/126、Gmail、Outlook、iCloud、企业邮箱和任何支持 IMAP 的邮箱。所有账号按时间排在一起，每个账号一个颜色；回信时自动用收信的那个身份发出，不会用错邮箱。
+
+Gmail 和 Outlook 支持**一键登录**（浏览器里授权，不用填密码）。软件跟随系统代理连接邮件服务器，国内用 Gmail 不用开全局。
+
+### AI 批注：打开之前就知道这封信要干嘛
+
+<img alt="AI 批注" src="docs/images/feature-ai.jpg">
+
+每封新邮件都会被 AI 读一遍，在信的上方写一段批注：
+
+- **一句话摘要**和分类：询盘、待办、账单、通知、订阅、个人
+- **要点卡片**：数量、价格、贸易条款、付款方式、截止日期，一眼看全，不用在长邮件里找
+- **待办**：信里要你做的事自动列出来，带截止日期
+- **建议回复**：按来信的语言起草（英文信回英文），点「填入回复」直接改
+
+通知和广告邮件用本地规则分类，不调用模型，不花你的钱。
+
+### 今日简报：早上打开，一页看完
+
+<img alt="今日简报" src="docs/images/feature-digest.jpg">
+
+今天要回的、要付的、要跟进的，加上一段 AI 写的概要。出差回来几百封未读，先看这一页就知道从哪里下手。
+
+### 写信：AI 起草，你来决定
+
+<img alt="写信和 AI 助手" src="docs/images/feature-compose.jpg">
+
+- 换个语气（专业 / 友好 / 简洁）重写，润色、翻译、缩短一半
+- **要点核对**：对照来信的要点，检查回复有没有漏掉数量、条款、日期
+- 支持 Markdown，发送时自动排版；点发送后几秒内可以撤销
+- **AI 只起草，从不替你发信**
+
+### 待办：从邮件里来，回到邮件里去
+
+<img alt="待办" src="docs/images/feature-todo.jpg">
+
+AI 从邮件里提出来的待办和你自己加的放在一起，按今天、本周、以后排好。点一下就跳回那封邮件处理。
+
+### 还有这些
+
+| | |
+|---|---|
+| **重点** | 你标的星标，加上 AI 判断需要尽快处理的 |
+| **待跟进** | 你发出去 3 天以上、对方还没回的邮件 |
+| **账单发票** | 各账号的账单、发票、扣费提醒合在一起 |
+| **稍后处理** | 把邮件暂时收起来，到点再出现 |
+| **问邮箱** | 在搜索框里直接提问，比如「上次给 Marco 报的价是多少？」，AI 从你的邮件里找答案并标出处 |
+| **深色模式** | 跟随系统，或者手动切换；Windows 11 上有磨砂玻璃效果 |
+| **键盘操作** | `J` `K` 上下、`E` 归档、`R` 回复、`C` 写信、`Ctrl K` 搜索 |
+
+<img alt="深色模式" src="docs/images/feature-dark.jpg">
+
+### 省资源
+
+每个账号只保持一条连接，有新邮件服务器会推送过来，不轮询。空闲时 CPU 几乎为零，常驻内存约 100 MB。关掉窗口缩到托盘，后台照常收信。
 
 ## 隐私
 
-- 邮件、设置、待办存在本机；密码、登录授权、AI 密钥存在系统的凭据管理器（Windows 凭据管理器 / macOS 钥匙串）
-- 程序只连接：你的邮件服务器、一键登录时的谷歌/微软登录服务、你自己配置的 AI 接口、检查更新的地址。没有统计、没有广告
+- 邮件、设置、待办**只存在你的电脑上**；密码、登录授权、AI 密钥存在系统的凭据管理器（Windows 凭据管理器 / macOS 钥匙串）
+- 软件只连接：你的邮件服务器、一键登录时谷歌 / 微软的登录服务、**你自己配置的 AI 接口**、检查更新的地址
+- 没有账号体系，没有统计，没有广告
+- 可以按账号关掉 AI：这个账号的邮件一封都不会发给模型
 - 详见 [隐私政策](https://mail.songxxai.com/kojoomail/privacy)
+
+## AI 怎么配
+
+在「设置 → AI 与模型」选一个服务商，填上你自己的密钥就能用。任何兼容 OpenAI 接口的服务都可以：DeepSeek、通义千问、Kimi、OpenAI 有现成选项，其他兼容接口（包括你自己部署的模型）填地址就行。每天有分析上限，可以自己调。
+
+不配 AI 也能用：它就是一个干净、省资源的多账号邮件客户端。
+
+## 下载
+
+**[mail.songxxai.com/kojoomail](https://mail.songxxai.com/kojoomail/)**：Windows 10/11（64 位）和 macOS（Apple 芯片）。
+
+软件有新版本时会提示你，点一下就能更新。
+
+> macOS 版暂时没有苹果开发者签名，第一次打开要去「系统设置 → 隐私与安全性」点「仍要打开」。
 
 ## 从源码编译
 
@@ -31,13 +118,21 @@ bash scripts/build-mac.sh          # macOS（在 Mac 上跑）
 ```
 
 - Gmail / Outlook 一键登录需要你自己申请客户端 ID，见 [docs/oauth-setup.md](docs/oauth-setup.md)；不申请也能编译，Gmail 用应用专用密码登录
-- **自己改代码再分发的话**：把 `src-tauri/tauri.conf.json` 里 `plugins.updater` 的 `pubkey` 和 `endpoints` 换成你自己的（`tauri signer generate` 生成密钥），或者删掉这一段。否则你的版本会提示用户更新到官方版
+- **自己改代码再分发的话**：把 `src-tauri/tauri.conf.json` 里 `plugins.updater` 的 `pubkey` 和 `endpoints` 换成你自己的（`tauri signer generate` 生成密钥），或者删掉这一段，否则你的版本会提示用户更新到官方版
+- README 里的截图用演示数据生成：`scripts/screenshots/`
 
-目录：`src/` 界面（React + TypeScript）· `src-tauri/` 后端（Rust）· `design/` 图标源文件 · `docs/` 说明 · `tests/` 测试 · `scripts/` 构建脚本
+| 目录 | 内容 |
+|---|---|
+| `src/` | 界面（React + TypeScript） |
+| `src-tauri/` | 后端（Rust）：IMAP/SMTP、同步、AI 队列、本地数据库 |
+| `design/` | 图标源文件 |
+| `docs/` | 说明文档和 README 用图 |
+| `tests/` | 单元测试和端到端测试 |
+| `scripts/` | 构建、图标、截图脚本 |
 
 ## 参与
 
-欢迎提 Issue 和 Pull Request，提交前请看 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎提 Issue 和 Pull Request。提交前请看 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 许可证
 
@@ -47,8 +142,13 @@ bash scripts/build-mac.sh          # macOS（在 Mac 上跑）
 
 ## English
 
-Kojoo Mail is a desktop email client (Windows / macOS) that puts all your mailboxes in one inbox, with optional AI summaries, to-dos and reply drafts using your own OpenAI-compatible API key. Mail stays on your computer; credentials live in the OS credential store.
+**Kojoo Mail** is a desktop email client for Windows and macOS that puts all your mailboxes in one inbox: QQ, NetEase, Gmail, Outlook, iCloud, and any IMAP account.
 
-Build from source with Node.js 20+ and Rust: `npm ci && npm run tauri dev`. If you redistribute a modified build, replace the updater `pubkey` / `endpoints` in `src-tauri/tauri.conf.json`.
+- **AI notes on every email**: a one-line summary, category, key facts (quantities, terms, deadlines), extracted to-dos, and a suggested reply in the sender's language. Uses your own OpenAI-compatible API key (DeepSeek, Qwen, OpenAI, or self-hosted). AI drafts; it never sends on your behalf.
+- **Daily digest**: what to reply to, what to pay, and what to follow up on, on one page.
+- **Local-first**: mail stays on your computer; credentials live in the OS credential store. No accounts, no telemetry, no ads.
+- **Light on resources**: one connection per account, push instead of polling, about 100 MB of memory at idle.
+
+Download: [mail.songxxai.com/kojoomail](https://mail.songxxai.com/kojoomail/). To build from source, install Node.js 20+ and Rust, then run `npm ci && npm run tauri dev`. If you redistribute a modified build, replace the updater `pubkey` and `endpoints` in `src-tauri/tauri.conf.json`.
 
 Licensed under [AGPL-3.0](LICENSE). For commercial licensing, contact eko@kojoo.co.
