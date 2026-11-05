@@ -3,12 +3,13 @@ import { ask } from '../lib/ask'
 import { open as pickFiles } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { Icon } from '../icons'
-import { useApp } from '../store'
+import { useApp, pendingSends } from '../store'
 import { api, errText, type Addr, type DraftIn } from '../lib/api'
 import { parseAddrs, validEmail, fullTime } from '../lib/format'
 import { mdPreview, mdToHtml, quoteText } from '../lib/md'
 import { Seg, Sheet, useMenu } from '../ui'
 import { keyText } from '../lib/platform'
+import { L, EN } from '../lib/i18n'
 
 type Field = 'to' | 'cc' | 'bcc'
 
@@ -29,10 +30,12 @@ export default function Compose() {
         cc = [...base.to, ...base.cc].filter((a) => { const k = a.email.toLowerCase(); if (self.has(k) || seen.has(k)) return false; seen.add(k); return true })
       }
       subject = /^re:/i.test(base.subject) ? base.subject : `Re: ${base.subject}`
-      quote = quoteText(base.text, `在 ${fullTime(base.date)}，${base.fromName || base.fromAddr} 写道：`)
+      quote = quoteText(base.text, EN ? `On ${fullTime(base.date)}, ${base.fromName ? `${base.fromName} <${base.fromAddr}>` : base.fromAddr} wrote:` : `在 ${fullTime(base.date)}，${base.fromName || base.fromAddr} 写道：`)
     } else if (base && c.mode === 'forward') {
       subject = /^(fwd?|转发):/i.test(base.subject) ? base.subject : `Fwd: ${base.subject}`
-      quote = `\n\n---------- 转发的邮件 ----------\n发件人：${base.fromName} <${base.fromAddr}>\n时间：${fullTime(base.date)}\n主题：${base.subject}\n\n${base.text}`
+      quote = EN
+        ? `\n\n---------- Forwarded message ----------\nFrom: ${base.fromName} <${base.fromAddr}>\nDate: ${fullTime(base.date)}\nSubject: ${base.subject}\n\n${base.text}`
+        : `\n\n---------- 转发的邮件 ----------\n发件人：${base.fromName} <${base.fromAddr}>\n时间：${fullTime(base.date)}\n主题：${base.subject}\n\n${base.text}`
     }
     if (c.prefill?.to) to = parseAddrs(c.prefill.to)
     if (c.prefill?.subject != null) subject = c.prefill.subject
@@ -95,7 +98,7 @@ export default function Compose() {
 
   const close = async () => {
     if (dirty.current && (body.trim() || subject.trim() || rc.to.length)) {
-      try { await api.saveDraft(draft()); s.toast('已存为草稿') } catch { /* */ }
+      try { await api.saveDraft(draft()); s.toast(L('已存为草稿', 'Saved as draft')) } catch { /* */ }
     }
     s.set({ compose: null })
     s.refreshMeta()
@@ -140,11 +143,11 @@ export default function Compose() {
   }
   const doSend = async () => {
     const all = [...rc.to, ...rc.cc, ...rc.bcc]
-    if (!rc.to.length) { s.toast('请填写收件人', { kind: 'err' }); return }
+    if (!rc.to.length) { s.toast(L('请填写收件人', 'Add a recipient'), { kind: 'err' }); return }
     const bad = all.find((a) => !validEmail(a.email))
-    if (bad) { s.toast(`收件地址不对：${bad.email}`, { kind: 'err' }); return }
-    if (placeholders.length && !await ask(`正文里还有 ${placeholders.length} 处没填的占位，比如 ${placeholders[0]}。确定发送吗？`)) return
-    if (!subject.trim() && !await ask('没有主题，确定发送吗？')) return
+    if (bad) { s.toast(L(`收件地址不对：${bad.email}`, `Invalid address: ${bad.email}`), { kind: 'err' }); return }
+    if (placeholders.length && !await ask(L(`正文里还有 ${placeholders.length} 处没填的占位，比如 ${placeholders[0]}。确定发送吗？`, `The message still has ${placeholders.length} unfilled ${placeholders.length === 1 ? 'placeholder' : 'placeholders'}, such as ${placeholders[0]}. Send anyway?`))) return
+    if (!subject.trim() && !await ask(L('没有主题，确定发送吗？', 'No subject. Send anyway?'))) return
     const d = draft()
     try { await api.precheckSend(d) } catch (e) { s.toast(errText(e), { kind: 'err', ttl: 8000 }); return }
     d.html = mdToHtml(d.body)
@@ -156,29 +159,34 @@ export default function Compose() {
     let left = secs
     let lastToast = 0
     const reopen = () => s.openCompose('draft', null, { draftId: d.id, draft: { ...d, html: '' } })
-    const show = () => { if (lastToast) s.drop(lastToast); lastToast = s.toast(`正在发送… `, { action: { label: `撤销 ${left}`, run: () => { cancelled = true; reopen() } }, ttl: 1100 }) }
+    const show = () => { if (lastToast) s.drop(lastToast); lastToast = s.toast(L(`正在发送… `, `Sending… `), { action: { label: L(`撤销 ${left}`, `Undo ${left}`), run: () => { cancelled = true; reopen() } }, ttl: 1100 }) }
     if (secs > 0) {
-      show()
-      for (; left > 1; ) {
+      // 倒计时期间不能重新加载界面（换语言），否则信就停在草稿里发不出去
+      pendingSends.n++
+      try {
+        show()
+        for (; left > 1; ) {
+          await new Promise((r) => setTimeout(r, 1000))
+          if (cancelled) return
+          left--
+          show()
+        }
         await new Promise((r) => setTimeout(r, 1000))
         if (cancelled) return
-        left--
-        show()
-      }
-      await new Promise((r) => setTimeout(r, 1000))
-      if (cancelled) return
+      } finally { pendingSends.n-- }
     }
+    pendingSends.n++
     try {
       await api.send(d)
-      s.toast('已发送')
+      s.toast(L('已发送', 'Sent'))
       s.refreshMeta()
     } catch (e) {
-      s.toast(`发送失败，已存回草稿：${errText(e)}`, { kind: 'err', ttl: 8000, action: { label: '打开', run: reopen } })
-    }
+      s.toast(L(`发送失败，已存回草稿：${errText(e)}`, `Couldn't send. Saved back to drafts: ${errText(e)}`), { kind: 'err', ttl: 8000, action: { label: L('打开', 'Open'), run: reopen } })
+    } finally { pendingSends.n-- }
   }
 
   const rewrite = async (op: string, arg = '') => {
-    if (!body.trim()) { s.toast('先写点内容'); return }
+    if (!body.trim()) { s.toast(L('先写点内容', 'Write something first')); return }
     setAiBusy(op)
     try { const t = await api.aiRewrite(body, op, arg); setBody(t); touch() } catch (e) { s.toast(errText(e), { kind: 'err' }) } finally { setAiBusy('') }
   }
@@ -194,30 +202,30 @@ export default function Compose() {
     return () => window.removeEventListener('keydown', h)
   })
 
-  const title = c.mode === 'reply' || c.mode === 'replyAll' ? `回复 ${base?.fromName || base?.fromAddr || ''}` : c.mode === 'forward' ? '转发' : '新邮件'
+  const title = c.mode === 'reply' || c.mode === 'replyAll' ? L(`回复 ${base?.fromName || base?.fromAddr || ''}`, `Reply to ${base?.fromName || base?.fromAddr || ''}`) : c.mode === 'forward' ? L('转发', 'Forward') : L('新邮件', 'New email')
 
   return (
     <Sheet onClose={close} className="compose" label={title}>
       <div className="c-bar">
-        <button className="btn primary sq" onClick={send}><Icon name="send" size={15} />发送</button>
+        <button className="btn primary sq" onClick={send}><Icon name="send" size={15} />{L('发送', 'Send')}</button>
         <span style={{ width: .5, height: 18, background: 'var(--line)', margin: '0 6px' }} />
-        <button className="tb" aria-label="添加附件" data-tip="添加附件" onClick={async () => {
-          const r = await pickFiles({ multiple: true, title: '选择附件' }).catch(() => null)
+        <button className="tb" aria-label={L('添加附件', 'Attach files')} data-tip={L('添加附件', 'Attach files')} onClick={async () => {
+          const r = await pickFiles({ multiple: true, title: L('选择附件', 'Choose attachments') }).catch(() => null)
           if (r) setFiles((f) => [...f, ...(Array.isArray(r) ? r : [r]).filter((p) => !f.includes(p))])
         }}><Icon name="clip" /></button>
-        <button className="tb" aria-label="舍弃草稿" data-tip="舍弃草稿" onClick={async () => { if (!body.trim() || await ask('舍弃这封草稿？')) discard() }}><Icon name="trash" /></button>
+        <button className="tb" aria-label={L('舍弃草稿', 'Discard draft')} data-tip={L('舍弃草稿', 'Discard draft')} onClick={async () => { if (!body.trim() || await ask(L('舍弃这封草稿？', 'Discard this draft?'))) discard() }}><Icon name="trash" /></button>
         <div className="grow truncate" style={{ textAlign: 'center', fontSize: 13, fontWeight: 600 }}>{title}</div>
         {s.aiConfigured ? (
-          <button className="btn sm sq" style={{ background: aiOpen ? 'var(--sel)' : 'transparent', boxShadow: 'none' }} aria-pressed={aiOpen} onClick={() => setAiOpen(!aiOpen)}><Icon name="sparkle" size={15} />AI 助手</button>
+          <button className="btn sm sq" style={{ background: aiOpen ? 'var(--sel)' : 'transparent', boxShadow: 'none' }} aria-pressed={aiOpen} onClick={() => setAiOpen(!aiOpen)}><Icon name="sparkle" size={15} />{L('AI 助手', 'AI assistant')}</button>
         ) : (
-          <button className="btn sm sq" style={{ background: 'transparent', boxShadow: 'none', color: 'var(--sec)' }} data-tip="改写、翻译、核对要点要先设置 AI" onClick={() => s.toast('还没设置 AI', { action: { label: '存草稿并去设置', run: async () => { if (useApp.getState().compose?.key === c.key) await closeRef.current(); s.openAiSettings() } }, ttl: 6000 })}><Icon name="sparkle" size={15} />AI 助手</button>
+          <button className="btn sm sq" style={{ background: 'transparent', boxShadow: 'none', color: 'var(--sec)' }} data-tip={L('改写、翻译、核对要点要先设置 AI', 'Set up AI to rewrite, translate and fact check')} onClick={() => s.toast(L('还没设置 AI', "AI isn't set up yet"), { action: { label: L('存草稿并去设置', 'Save draft and set up'), run: async () => { if (useApp.getState().compose?.key === c.key) await closeRef.current(); s.openAiSettings() } }, ttl: 6000 })}><Icon name="sparkle" size={15} />{L('AI 助手', 'AI assistant')}</button>
         )}
-        <button className="tb" aria-label="关闭（自动存草稿）" data-tip="关闭，自动存草稿" onClick={close}><Icon name="x" /></button>
+        <button className="tb" aria-label={L('关闭（自动存草稿）', 'Close (saves draft)')} data-tip={L('关闭，自动存草稿', 'Close and save draft')} onClick={close}><Icon name="x" /></button>
       </div>
       <div className="c-main">
         <div className="c-edit" style={{ position: 'relative' }}>
           <div className="c-field">
-            <span className="k">发件人</span>
+            <span className="k">{L('发件人', 'From')}</span>
             <select value={accountId} onChange={(e) => {
               const next = Number(e.target.value)
               const oldSig = me(accountId)?.signature || ''
@@ -227,34 +235,34 @@ export default function Compose() {
                 else if (!oldSig && newSig && !body.includes(newSig)) setBody(`${body}\n\n${newSig}`)
               }
               setAccountId(next); touch()
-            }} className="field" style={{ width: 'auto', height: 28, fontSize: 13, padding: '0 8px', maxWidth: '100%' }} aria-label="发件账号">
+            }} className="field" style={{ width: 'auto', height: 28, fontSize: 13, padding: '0 8px', maxWidth: '100%' }} aria-label={L('发件账号', 'Sending account')}>
               {s.accounts.map((a) => <option key={a.id} value={a.id}>{(a.label ? `${a.label} · ` : '') + a.email}</option>)}
             </select>
           </div>
-          <Recipients id="c-to" label="收件人" list={rc.to} onChange={(v) => { setRc({ ...rc, to: v }); touch() }} extra={!showCc && <button className="btn link sm" onClick={() => setShowCc(true)}>抄送 · 密送</button>} />
-          {showCc && <Recipients label="抄送" list={rc.cc} onChange={(v) => { setRc({ ...rc, cc: v }); touch() }} />}
-          {showCc && <Recipients label="密送" list={rc.bcc} onChange={(v) => { setRc({ ...rc, bcc: v }); touch() }} />}
-          <div className="c-field"><span className="k">主题</span><input value={subject} onChange={(e) => { setSubject(e.target.value); touch() }} aria-label="主题" style={{ fontWeight: 500 }} /></div>
+          <Recipients id="c-to" label={L('收件人', 'To')} list={rc.to} onChange={(v) => { setRc({ ...rc, to: v }); touch() }} extra={!showCc && <button className="btn link sm" onClick={() => setShowCc(true)}>{L('抄送 · 密送', 'Cc · Bcc')}</button>} />
+          {showCc && <Recipients label={L('抄送', 'Cc')} list={rc.cc} onChange={(v) => { setRc({ ...rc, cc: v }); touch() }} />}
+          {showCc && <Recipients label={L('密送', 'Bcc')} list={rc.bcc} onChange={(v) => { setRc({ ...rc, bcc: v }); touch() }} />}
+          <div className="c-field"><span className="k">{L('主题', 'Subject')}</span><input value={subject} onChange={(e) => { setSubject(e.target.value); touch() }} aria-label={L('主题', 'Subject')} style={{ fontWeight: 500 }} /></div>
           <div className="row" style={{ padding: '10px 24px 0', gap: 10 }}>
-            <Seg small value={mode} onChange={setMode} options={[['edit', '编辑'], ['preview', '预览']]} />
-            <span className="row" style={{ gap: 5, fontSize: 12, color: 'var(--sec)' }}><Icon name="markdown" size={16} />支持 Markdown，发送时自动排版</span>
+            <Seg small value={mode} onChange={setMode} options={[['edit', L('编辑', 'Edit')], ['preview', L('预览', 'Preview')]]} />
+            <span className="row" style={{ gap: 5, fontSize: 12, color: 'var(--sec)' }}><Icon name="markdown" size={16} />{L('支持 Markdown，发送时自动排版', 'Markdown supported, formatted when sent')}</span>
             {mode === 'edit' && (
               <span className="row" style={{ marginLeft: 'auto', gap: 2 }}>
-                {([['B', '粗体', () => wrap('**', '**', '粗体')], ['I', '斜体', () => wrap('*', '*', '斜体')], ['•', '列表', () => prefix('- ')], ['1.', '编号', () => prefix('1. ')], ['❝', '引用', () => prefix('> ')], ['🔗', '链接', () => wrap('[', '](https://)', '链接文字')]] as [string, string, () => void][]).map(([t, tip, run]) => (
+                {([['B', L('粗体', 'Bold'), () => wrap('**', '**', L('粗体', 'bold'))], ['I', L('斜体', 'Italic'), () => wrap('*', '*', L('斜体', 'italic'))], ['•', L('列表', 'Bulleted list'), () => prefix('- ')], ['1.', L('编号', 'Numbered list'), () => prefix('1. ')], ['❝', L('引用', 'Quote'), () => prefix('> ')], ['🔗', L('链接', 'Link'), () => wrap('[', '](https://)', L('链接文字', 'link text'))]] as [string, string, () => void][]).map(([t, tip, run]) => (
                   <button key={tip} className="tb" style={{ width: 26, height: 26, fontSize: 12.5, fontWeight: t === 'B' ? 700 : 500, fontStyle: t === 'I' ? 'italic' : undefined }} aria-label={tip} data-tip={tip} onMouseDown={(e) => e.preventDefault()} onClick={run}>{t}</button>
                 ))}
               </span>
             )}
           </div>
           {mode === 'edit' ? (
-            <textarea ref={bodyRef} value={body} onChange={(e) => { setBody(e.target.value); touch() }} placeholder="写点什么…" aria-label="正文" spellCheck={false} />
+            <textarea ref={bodyRef} value={body} onChange={(e) => { setBody(e.target.value); touch() }} placeholder={L('写点什么…', 'Write something…')} aria-label={L('正文', 'Message body')} spellCheck={false} />
           ) : (
-            <div className="preview" dangerouslySetInnerHTML={{ __html: mdPreview(body) || '<p style="color:var(--ter)">（空）</p>' }} />
+            <div className="preview" dangerouslySetInnerHTML={{ __html: mdPreview(body) || `<p style="color:var(--ter)">${L('（空）', '(empty)')}</p>` }} />
           )}
           {initial.quote && (
             <div style={{ padding: '0 24px 8px' }}>
               <button className="btn sm sq" style={{ background: 'var(--well)', boxShadow: 'none', color: 'var(--sec)' }} onClick={() => setShowQuote(!showQuote)}>
-                {showQuote ? '收起引用的原邮件' : `··· 显示${c.mode === 'forward' ? '转发' : '引用'}的原邮件`}
+                {showQuote ? L('收起引用的原邮件', 'Hide original email') : L(`··· 显示${c.mode === 'forward' ? '转发' : '引用'}的原邮件`, `··· Show ${c.mode === 'forward' ? 'forwarded' : 'quoted'} email`)}
               </button>
               {showQuote && <pre style={{ margin: '8px 0 0', maxHeight: 160, overflow: 'auto', fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--sec)', whiteSpace: 'pre-wrap', borderLeft: '2px solid var(--line)', paddingLeft: 10 }}>{initial.quote.trim()}</pre>}
             </div>
@@ -266,58 +274,58 @@ export default function Compose() {
                 <span key={f} className="att sq" style={{ cursor: 'default' }}>
                   <span className="ext">{(name.split('.').pop() || 'FILE').slice(0, 4).toUpperCase()}</span>
                   <span className="truncate" style={{ maxWidth: 200 }}>{name}</span>
-                  <button className="tb" style={{ width: 20, height: 20 }} aria-label={`移除 ${name}`} onClick={() => setFiles(files.filter((x) => x !== f))}><Icon name="x" size={12} /></button>
+                  <button className="tb" style={{ width: 20, height: 20 }} aria-label={L(`移除 ${name}`, `Remove ${name}`)} onClick={() => setFiles(files.filter((x) => x !== f))}><Icon name="x" size={12} /></button>
                 </span>
               )
             })}
-            {base && c.mode === 'forward' && base.atts.length > 0 && <span style={{ fontSize: 12, color: 'var(--sec)' }}>会带上原邮件的 {base.atts.length} 个附件</span>}
+            {base && c.mode === 'forward' && base.atts.length > 0 && <span style={{ fontSize: 12, color: 'var(--sec)' }}>{L(`会带上原邮件的 ${base.atts.length} 个附件`, `Includes ${base.atts.length} ${base.atts.length === 1 ? 'attachment' : 'attachments'} from the original`)}</span>}
             <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ter)' }}>
-              {savedAt ? `草稿已保存 ${new Date(savedAt).toTimeString().slice(0, 5)}　·　` : ''}<span className="mono">{keyText('Ctrl ↵')}</span> 发送
+              {savedAt ? L(`草稿已保存 ${new Date(savedAt).toTimeString().slice(0, 5)}　·　`, `Draft saved ${new Date(savedAt).toTimeString().slice(0, 5)}  ·  `) : ''}<span className="mono">{keyText('Ctrl ↵')}</span> {L('发送', 'to send')}
             </span>
           </div>
-          {dragging && <div className="drop"><Icon name="clip" size={24} /><b>松开即可添加附件</b><span style={{ fontSize: 12 }}>{me(accountId)?.provider === 'outlook' && me(accountId)?.auth === 'oauth' ? 'Outlook 单封附件最多约 2 MB' : '单封邮件附件最多 25 MB'}</span></div>}
+          {dragging && <div className="drop"><Icon name="clip" size={24} /><b>{L('松开即可添加附件', 'Drop to attach')}</b><span style={{ fontSize: 12 }}>{me(accountId)?.provider === 'outlook' && me(accountId)?.auth === 'oauth' ? L('Outlook 单封附件最多约 2 MB', 'Outlook allows about 2 MB of attachments per email') : L('单封邮件附件最多 25 MB', 'Up to 25 MB of attachments per email')}</span></div>}
         </div>
 
         {aiOpen && s.aiConfigured && (
           <aside className="ai-side">
             {base && (
               <div>
-                <div className="h" style={{ fontSize: 11, fontWeight: 600, color: 'var(--ter)', margin: '0 0 8px 4px' }}>语气</div>
-                <Seg value={tone} onChange={setTone} options={[['pro', '专业'], ['friendly', '友好'], ['brief', '简洁']]} />
-                <button className="btn sq" style={{ width: '100%', marginTop: 8 }} disabled={!!aiBusy} onClick={aiDraft}>{aiBusy === 'draft' ? '正在起草…' : body.trim() ? '按这个语气重写回复' : '起草回复'}</button>
+                <div className="h" style={{ fontSize: 11, fontWeight: 600, color: 'var(--ter)', margin: '0 0 8px 4px' }}>{L('语气', 'Tone')}</div>
+                <Seg value={tone} onChange={setTone} options={[['pro', L('专业', 'Professional')], ['friendly', L('友好', 'Friendly')], ['brief', L('简洁', 'Concise')]]} />
+                <button className="btn sq" style={{ width: '100%', marginTop: 8 }} disabled={!!aiBusy} onClick={aiDraft}>{aiBusy === 'draft' ? L('正在起草…', 'Drafting…') : body.trim() ? L('按这个语气重写回复', 'Rewrite reply in this tone') : L('起草回复', 'Draft reply')}</button>
               </div>
             )}
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ter)', margin: '0 0 4px 4px' }}>改写</div>
-              <button className="act sq" disabled={!!aiBusy} onClick={() => rewrite('polish')}><Icon name="pen" style={{ color: 'var(--sec)' }} />{aiBusy === 'polish' ? '正在润色…' : '润色全文'}</button>
-              <button className="act sq" disabled={!!aiBusy} onClick={(e) => menu.openBelow(e.currentTarget, ['英文', '中文', '意大利语', '德语', '法语', '西班牙语', '日语', '韩语', '俄语', '阿拉伯语'].map((l) => ({ label: l, run: () => rewrite('translate', l) })))}>
-                <Icon name="translate" style={{ color: 'var(--sec)' }} />{aiBusy === 'translate' ? '正在翻译…' : '翻译成…'}
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ter)', margin: '0 0 4px 4px' }}>{L('改写', 'Rewrite')}</div>
+              <button className="act sq" disabled={!!aiBusy} onClick={() => rewrite('polish')}><Icon name="pen" style={{ color: 'var(--sec)' }} />{aiBusy === 'polish' ? L('正在润色…', 'Polishing…') : L('润色全文', 'Polish')}</button>
+              <button className="act sq" disabled={!!aiBusy} onClick={(e) => menu.openBelow(e.currentTarget, TRANSLATE_TO.map(([l, en]) => ({ label: L(l, en), run: () => rewrite('translate', l) })))}>
+                <Icon name="translate" style={{ color: 'var(--sec)' }} />{aiBusy === 'translate' ? L('正在翻译…', 'Translating…') : L('翻译成…', 'Translate to…')}
               </button>
-              <button className="act sq" disabled={!!aiBusy} onClick={() => rewrite('shorten')}><Icon name="lines" style={{ color: 'var(--sec)' }} />{aiBusy === 'shorten' ? '正在缩短…' : '缩短一半'}</button>
-              {!base && <button className="act sq" disabled={!!aiBusy} onClick={() => rewrite('tone', tone)}><Icon name="sparkle" style={{ color: 'var(--sec)' }} />改成{tone === 'friendly' ? '友好' : tone === 'brief' ? '简洁' : '专业'}语气</button>}
+              <button className="act sq" disabled={!!aiBusy} onClick={() => rewrite('shorten')}><Icon name="lines" style={{ color: 'var(--sec)' }} />{aiBusy === 'shorten' ? L('正在缩短…', 'Shortening…') : L('缩短一半', 'Shorten')}</button>
+              {!base && <button className="act sq" disabled={!!aiBusy} onClick={() => rewrite('tone', tone)}><Icon name="sparkle" style={{ color: 'var(--sec)' }} />{L(`改成${tone === 'friendly' ? '友好' : tone === 'brief' ? '简洁' : '专业'}语气`, `Make it ${tone === 'friendly' ? 'friendly' : tone === 'brief' ? 'concise' : 'professional'}`)}</button>}
             </div>
             {(facts.length > 0 || placeholders.length > 0) && (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ter)', margin: '0 0 8px 4px' }}>要点核对</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ter)', margin: '0 0 8px 4px' }}>{L('要点核对', 'Fact check')}</div>
                 <div className="group sq" style={{ padding: '4px 12px', fontSize: 12.5 }}>
                   {facts.map((f, i) => {
                     const ok = body.toLowerCase().includes(f.v.toLowerCase().replace(/\s+sets?$/, '').split(/[,，\s]/)[0]?.toLowerCase() || '###')
                     return (
                       <div key={i} className="row" style={{ minHeight: 32, borderTop: i ? '.5px solid var(--line-2)' : undefined, color: ok ? undefined : 'var(--sec)' }}>
-                        <Icon name={ok ? 'check' : 'info'} size={15} style={{ color: ok ? 'var(--green-text)' : 'var(--ter)' }} />{f.k}：{f.v}
+                        <Icon name={ok ? 'check' : 'info'} size={15} style={{ color: ok ? 'var(--green-text)' : 'var(--ter)' }} />{f.k}{L('：', ': ')}{f.v}
                       </div>
                     )
                   })}
                   {placeholders.length > 0 && (
                     <div className="row" style={{ minHeight: 32, borderTop: facts.length ? '.5px solid var(--line-2)' : undefined, color: 'var(--amber-text)' }}>
-                      <Icon name="alert" size={15} />还有 {placeholders.length} 处占位没填：{placeholders.slice(0, 2).join(' ')}
+                      <Icon name="alert" size={15} />{L(`还有 ${placeholders.length} 处占位没填：`, `${placeholders.length} unfilled ${placeholders.length === 1 ? 'placeholder' : 'placeholders'}: `)}{placeholders.slice(0, 2).join(' ')}
                     </div>
                   )}
                 </div>
               </div>
             )}
             <div className="row" style={{ marginTop: 'auto', gap: 8, fontSize: 11.5, color: 'var(--sec)', alignItems: 'flex-start', padding: '0 4px' }}>
-              <Icon name="lock" size={14} style={{ marginTop: 2 }} />AI 只改草稿，不会替你发送。
+              <Icon name="lock" size={14} style={{ marginTop: 2 }} />{L('AI 只改草稿，不会替你发送。', 'AI only edits the draft. It never sends for you.')}
             </div>
           </aside>
         )}
@@ -326,6 +334,9 @@ export default function Compose() {
     </Sheet>
   )
 }
+
+/** 翻译目标语言：传给 AI 的是中文名，菜单按界面语言显示 */
+const TRANSLATE_TO: [string, string][] = [['英文', 'English'], ['中文', 'Chinese'], ['意大利语', 'Italian'], ['德语', 'German'], ['法语', 'French'], ['西班牙语', 'Spanish'], ['日语', 'Japanese'], ['韩语', 'Korean'], ['俄语', 'Russian'], ['阿拉伯语', 'Arabic']]
 
 function Recipients({ id, label, list, onChange, extra }: { id?: string; label: string; list: Addr[]; onChange: (v: Addr[]) => void; extra?: React.ReactNode }) {
   const [q, setQ] = useState('')
@@ -344,7 +355,7 @@ function Recipients({ id, label, list, onChange, extra }: { id?: string; label: 
       {list.map((a, i) => (
         <span key={i} className={`chip${validEmail(a.email) ? '' : ' bad'}`} title={a.email}>
           {a.name || a.email}
-          <button aria-label={`移除 ${a.email}`} onClick={() => onChange(list.filter((_, j) => j !== i))}><Icon name="x" size={10} /></button>
+          <button aria-label={L(`移除 ${a.email}`, `Remove ${a.email}`)} onClick={() => onChange(list.filter((_, j) => j !== i))}><Icon name="x" size={10} /></button>
         </span>
       ))}
       <input id={id} value={q} aria-label={label} style={{ minWidth: 140, height: 32 }}

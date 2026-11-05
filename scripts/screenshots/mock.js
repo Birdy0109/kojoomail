@@ -1,15 +1,20 @@
 // 截图用的假后端：在浏览器里冒充 Tauri，给界面喂演示数据（人物、公司、邮箱全是虚构的）
 // 由 shoot.cjs 用 addInitScript 注入，不进正式程序
 ;(() => {
-  const now = Date.now()
+  // 固定在当天中午：什么时候拍截图，时间、问候语都一样
+  const now = new Date().setHours(12, 0, 0, 0)
   const H = 3600e3, D = 24 * H
   const t = (ms) => Math.floor((now - ms) / 1000) // 后端时间是秒
+  // 英文截图（shoot.cjs 传 __DEMO_LANG__='en'）：同一套故事换成英文版
+  const EN = window.__DEMO_LANG__ === 'en'
+  const X = (zh, en) => (EN ? en : zh)
+  const ME = X('林知夏', 'Lin Xia')
 
   const accounts = [
-    { id: 1, email: 'lin@lumenhome.example', displayName: '林知夏', label: '外贸 · Gmail', color: '#D4441F', provider: 'gmail' },
-    { id: 2, email: 'zhixia@lumen.example', displayName: '林知夏', label: '公司邮箱', color: '#1B4A80', provider: 'imap' },
-    { id: 3, email: '2873@qq.example', displayName: '林知夏', label: '个人 · QQ', color: '#3E7C5A', provider: 'qq' },
-    { id: 4, email: 'zx.lin@outlook.example', displayName: '林知夏', label: 'Outlook', color: '#8A5A9E', provider: 'outlook' },
+    { id: 1, email: 'lin@lumenhome.example', displayName: ME, label: X('外贸 · Gmail', 'Sales · Gmail'), color: '#D4441F', provider: 'gmail' },
+    { id: 2, email: 'zhixia@lumen.example', displayName: ME, label: X('公司邮箱', 'Work'), color: '#1B4A80', provider: 'imap' },
+    { id: 3, email: X('2873@qq.example', 'linxia@icloud.example'), displayName: ME, label: X('个人 · QQ', 'Personal · iCloud'), color: '#3E7C5A', provider: X('qq', 'icloud') },
+    { id: 4, email: 'zx.lin@outlook.example', displayName: ME, label: 'Outlook', color: '#8A5A9E', provider: 'outlook' },
   ].map((a) => ({ imapHost: '', imapPort: 993, smtpHost: '', smtpPort: 465, smtpTls: true, saveSent: true, aiAllowed: true, signature: '', auth: a.provider === 'outlook' || a.provider === 'gmail' ? 'oauth' : 'password', focus: ['询盘', '待办', '账单'], aiLevel: 'full', ...a }))
 
   let fid = 0
@@ -20,7 +25,7 @@
   const inboxOf = (aid) => folders.find((f) => f.accountId === aid && f.role === 'inbox').id
 
   // [账号, 发件人, 地址, 主题, 摘要, 多久前, 已读, 星标, 附件, 分类, 优先级, AI 一句话, 待办数]
-  const raw = [
+  const rawZh = [
     [1, 'Marco Rossi', 'marco@lumen-srl.example', 'Inquiry: 2,000 sets bamboo cutlery, CIF Genoa', 'Hi Lin, we are interested in your bamboo cutlery set (SKU BC-12) for our autumn line…', 0.4 * H, false, true, true, '询盘', 'high', '意大利客户询价 2000 套竹餐具，CIF 热那亚，要求 11 月 20 日前报价并寄样', 2],
     [2, '财务部 · 周敏', 'zhoumin@lumen.example', '10 月报销单已审核，请补两张发票', '知夏你好，10 月差旅报销已审，缺 10/12 和 10/18 两张住宿发票…', 1.2 * H, false, false, false, '待办', 'high', '财务要你周五前补交 10/12、10/18 两张住宿发票', 1],
     [1, 'Sarah Klein', 'sarah@nordhaus.example', 'Re: Sample feedback & next order', 'Thanks for the samples — the oak trays look great. We would like to move forward with…', 2.5 * H, false, false, false, '询盘', 'high', '德国客户样品反馈满意，准备下单橡木托盘 600 件，问 12 月能否交货', 1],
@@ -36,14 +41,31 @@
     [4, '阿里云', 'noreply@aliyun.example', '发票已开具：2026 年 10 月', '您申请的增值税电子普通发票已开具，金额 ¥1,280.00…', 2 * D, true, false, true, '账单', 'normal', '阿里云 10 月发票已开，¥1,280.00', 0],
     [1, 'Canva', 'marketing@canva.example', 'New templates for your brand kit', 'Discover fresh templates…', 2.4 * D, true, false, false, '订阅', 'low', '', 0],
   ]
+  const rawEn = [
+    [1, 'Marco Rossi', 'marco@lumen-srl.example', 'Inquiry: 2,000 sets bamboo cutlery, CIF Genoa', 'Hi Lin, we are interested in your bamboo cutlery set (SKU BC-12) for our autumn line…', 0.4 * H, false, true, true, '询盘', 'high', 'Italian buyer wants a quote for 2,000 bamboo cutlery sets, CIF Genoa, by Nov 20, plus samples', 2],
+    [2, 'Emma Zhou · Finance', 'emma.zhou@lumen.example', 'October expenses approved: 2 receipts missing', 'Hi Lin, your October travel expenses are approved, but we still need the hotel receipts for Oct 12 and Oct 18…', 1.2 * H, false, false, false, '待办', 'high', 'Finance needs your Oct 12 and Oct 18 hotel receipts by Friday', 1],
+    [1, 'Sarah Klein', 'sarah@nordhaus.example', 'Re: Sample feedback & next order', 'Thanks for the samples — the oak trays look great. We would like to move forward with…', 2.5 * H, false, false, false, '询盘', 'high', 'German buyer loved the samples and wants 600 oak trays; asks if December delivery works', 1],
+    [4, 'Northbank Card Services', 'statements@northbank.example', 'Your November credit card statement', 'Statement balance $1,186.40, payment due November 25…', 3 * H, true, false, false, '账单', 'normal', 'Credit card statement: $1,186.40 due Nov 25', 0],
+    [3, 'Mom', 'mom@icloud.example', 'Dinner this Saturday?', 'Dad is making his braised ribs on Saturday. Bring Jamie along and let me know what time you will arrive…', 4 * H, false, false, false, '个人', 'normal', 'Mom asks if you are coming for dinner on Saturday and what time', 0],
+    [2, 'Leo Chen · Product', 'leo.chen@lumen.example', 'Packaging samples: please pick a design (3 attached)', 'The packaging samples are back. Three designs attached; please pick one before end of day…', 5 * H, true, true, true, '待办', 'high', 'Product team needs you to pick one of three packaging designs today', 1],
+    [1, 'Alibaba.com', 'noreply@alibaba.example', 'You have 3 new RFQs matching your products', 'Buyers from Spain, Chile and UAE are looking for bamboo kitchenware…', 7 * H, true, false, false, '通知', 'low', '', 0],
+    [1, 'DHL Express', 'noreply@dhl.example', 'Delivered: shipment 7745 2210 93', 'Your shipment 7745221093 was delivered in Hamburg on Nov 3 at 14:20…', 9 * H, true, false, false, '通知', 'low', '', 0],
+    [4, 'GitHub', 'noreply@github.example', '[kojoomail] New issue: support for Yahoo Mail', 'A new issue was opened in your repository…', 20 * H, true, false, false, '通知', 'low', '', 0],
+    [2, 'People Team', 'people@lumen.example', 'Annual health check: booking now open', 'Booking for the 2026 health check is open. Please choose a time slot in the portal by Nov 15…', 1.1 * D, true, false, false, '待办', 'normal', 'Book a slot for the annual health check by Nov 15', 1],
+    [3, 'The Inbox Weekly', 'hello@inboxweekly.example', '7 habits for a calmer inbox', 'This week: inbox zero, filters that actually help, and…', 1.3 * D, true, false, false, '订阅', 'low', '', 0],
+    [1, 'Ahmed Al-Sayed', 'ahmed@gulfhome.example', 'Price list request — kitchen storage', 'Dear supplier, please send your latest price list and MOQ for…', 1.6 * D, true, false, false, '询盘', 'normal', 'Dubai buyer asks for your latest kitchen storage price list and MOQ', 0],
+    [4, 'Cloudly', 'billing@cloudly.example', 'Invoice for October 2026', 'Your invoice for October is ready. Amount due: $182.00…', 2 * D, true, false, true, '账单', 'normal', 'Cloudly October invoice: $182.00', 0],
+    [1, 'Canva', 'marketing@canva.example', 'New templates for your brand kit', 'Discover fresh templates…', 2.4 * D, true, false, false, '订阅', 'low', '', 0],
+  ]
+  const raw = EN ? rawEn : rawZh
   const msgs = raw.map((r, i) => ({
     id: 100 + i, accountId: r[0], folderId: inboxOf(r[0]), role: 'inbox', fromName: r[1], fromAddr: r[2],
-    to: [{ name: '林知夏', email: accounts[r[0] - 1].email }], subject: r[3], snippet: r[4], date: t(r[5]),
+    to: [{ name: ME, email: accounts[r[0] - 1].email }], subject: r[3], snippet: r[4], date: t(r[5]),
     seen: r[6], flagged: r[7], answered: false, hasAtt: r[8], bulk: r[9] === '通知' || r[9] === '订阅',
     aiCategory: r[9], aiPriority: r[10], aiSummary: r[11], openTodos: r[12], later: null,
   }))
 
-  const todos = [
+  const todosZh = [
     { id: 1, msgId: 100, accountId: 1, text: '给 Marco 报 2000 套 BC-12 的 CIF 热那亚价格', due: t(-2 * D), priority: 'high', source: 'ai', srcSubject: msgs[0].subject, srcFrom: 'Marco Rossi' },
     { id: 2, msgId: 100, accountId: 1, text: '寄 2 套样品到 Lumen S.r.l.（米兰）', due: t(-5 * D), priority: 'normal', source: 'ai', srcSubject: msgs[0].subject, srcFrom: 'Marco Rossi' },
     { id: 3, msgId: 101, accountId: 2, text: '补交 10/12、10/18 两张住宿发票给财务', due: t(-1 * D), priority: 'high', source: 'ai', srcSubject: msgs[1].subject, srcFrom: '财务部 · 周敏' },
@@ -51,7 +73,17 @@
     { id: 5, msgId: 102, accountId: 1, text: '确认橡木托盘 600 件 12 月交期，回复 Sarah', due: t(-3 * D), priority: 'normal', source: 'ai', srcSubject: msgs[2].subject, srcFrom: 'Sarah Klein' },
     { id: 6, msgId: 109, accountId: 2, text: '预约年度体检', due: t(-11 * D), priority: 'normal', source: 'ai', srcSubject: msgs[9].subject, srcFrom: '人事部' },
     { id: 7, msgId: null, accountId: null, text: '整理 Q4 参展样品清单', due: null, priority: 'normal', source: 'manual', srcSubject: '', srcFrom: '' },
-  ].map((x) => ({ done: false, doneAt: null, created: t(1 * D), ...x }))
+  ]
+  const todosEn = [
+    { id: 1, msgId: 100, accountId: 1, text: 'Quote Marco CIF Genoa pricing for 2,000 sets of BC-12', due: t(-2 * D), priority: 'high', source: 'ai', srcSubject: msgs[0].subject, srcFrom: 'Marco Rossi' },
+    { id: 2, msgId: 100, accountId: 1, text: 'Ship 2 sample sets to Lumen S.r.l. (Milan)', due: t(-5 * D), priority: 'normal', source: 'ai', srcSubject: msgs[0].subject, srcFrom: 'Marco Rossi' },
+    { id: 3, msgId: 101, accountId: 2, text: 'Send the Oct 12 and Oct 18 hotel receipts to Finance', due: t(-1 * D), priority: 'high', source: 'ai', srcSubject: msgs[1].subject, srcFrom: 'Emma Zhou · Finance' },
+    { id: 4, msgId: 105, accountId: 2, text: 'Pick the new packaging design', due: t(-6 * H), priority: 'high', source: 'ai', srcSubject: msgs[5].subject, srcFrom: 'Leo Chen · Product' },
+    { id: 5, msgId: 102, accountId: 1, text: 'Confirm December delivery for 600 oak trays and reply to Sarah', due: t(-3 * D), priority: 'normal', source: 'ai', srcSubject: msgs[2].subject, srcFrom: 'Sarah Klein' },
+    { id: 6, msgId: 109, accountId: 2, text: 'Book the annual health check', due: t(-11 * D), priority: 'normal', source: 'ai', srcSubject: msgs[9].subject, srcFrom: 'People Team' },
+    { id: 7, msgId: null, accountId: null, text: 'Put together the Q4 trade show sample list', due: null, priority: 'normal', source: 'manual', srcSubject: '', srcFrom: '' },
+  ]
+  const todos = (EN ? todosEn : todosZh).map((x) => ({ done: false, doneAt: null, created: t(1 * D), ...x }))
 
   const marcoHtml = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222">
 <p>Hi Lin,</p>
@@ -67,18 +99,18 @@
   const full = (m) => ({
     ...m, cc: [], replyTo: '', msgid: `<${m.id}@demo>`, refs: '', inReplyTo: '', text: m.snippet,
     html: m.id === 100 ? marcoHtml : m.id === 102 ? sarahHtml : `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#222"><p>${m.snippet}</p></div>`,
-    atts: m.id === 100 ? [{ idx: 0, name: 'Lumen_logo_artwork.pdf', size: 482113, mime: 'application/pdf', inline: false }] : m.hasAtt ? [{ idx: 0, name: '附件.pdf', size: 210331, mime: 'application/pdf', inline: false }] : [],
+    atts: m.id === 100 ? [{ idx: 0, name: 'Lumen_logo_artwork.pdf', size: 482113, mime: 'application/pdf', inline: false }] : m.hasAtt ? [{ idx: 0, name: X('附件.pdf', 'Attachment.pdf'), size: 210331, mime: 'application/pdf', inline: false }] : [],
     ai: m.aiSummary ? {
       state: 1, summary: m.aiSummary, category: m.aiCategory, priority: m.aiPriority,
-      reason: m.id === 100 ? '新客户询价，有明确数量和截止日期' : '需要你处理',
-      facts: m.id === 100 ? [{ k: '产品', v: '竹餐具套装 BC-12' }, { k: '数量', v: '2,000 套' }, { k: '贸易条款', v: 'CIF 热那亚' }, { k: '付款', v: '30% 定金，70% 见提单副本' }, { k: '截止', v: '11 月 20 日前报价' }, { k: '样品', v: '先寄 2 套到米兰' }] : [],
+      reason: m.id === 100 ? X('新客户询价，有明确数量和截止日期', 'New buyer inquiry with a clear quantity and deadline') : X('需要你处理', 'Needs your action'),
+      facts: m.id === 100 ? (EN ? [{ k: 'Product', v: 'Bamboo cutlery set BC-12' }, { k: 'Quantity', v: '2,000 sets' }, { k: 'Incoterms', v: 'CIF Genoa' }, { k: 'Payment', v: '30% deposit, 70% against B/L copy' }, { k: 'Deadline', v: 'Quote by Nov 20' }, { k: 'Samples', v: '2 sets to Milan first' }] : [{ k: '产品', v: '竹餐具套装 BC-12' }, { k: '数量', v: '2,000 套' }, { k: '贸易条款', v: 'CIF 热那亚' }, { k: '付款', v: '30% 定金，70% 见提单副本' }, { k: '截止', v: '11 月 20 日前报价' }, { k: '样品', v: '先寄 2 套到米兰' }]) : [],
       reply: m.id === 100 ? 'Hi Marco,\n\nThank you for your inquiry. We are glad to quote for 2,000 sets of BC-12 with custom kraft boxes, CIF Genoa. Please find our offer attached; lead time is about 35 days after deposit and artwork confirmation.\n\nWe will ship 2 sample sets to your Milan office this week and share the tracking number.\n\nBest regards,\nLin' : '',
       replyLang: m.id === 100 ? 'en' : '', model: 'deepseek-v4-flash', error: '',
     } : null,
     aiPending: false, todos: todos.filter((x) => x.msgId === m.id),
   })
 
-  const settings = { theme: 'light', fontSize: 13, density: 'standard', serifTitles: true, autostart: false, closeToTray: true, defaultAccount: 1, notify: 'important', remoteImages: 'ask', undoSendSecs: 5, notifyPreview: true, aiProvider: 'deepseek', aiBase: 'https://api.deepseek.com/v1', aiModel: 'deepseek-v4-flash', aiModelFine: '', aiModelBackup: '', aiAuto: true, aiScope: 'skip_bulk', aiDailyLimit: 200 }
+  const settings = { theme: 'light', fontSize: 13, density: 'standard', serifTitles: true, autostart: false, closeToTray: true, defaultAccount: 1, notify: 'important', remoteImages: 'ask', undoSendSecs: 5, notifyPreview: true, aiProvider: 'deepseek', aiBase: 'https://api.deepseek.com/v1', aiModel: 'deepseek-v4-flash', aiModelFine: '', aiModelBackup: '', aiAuto: true, aiScope: 'skip_bulk', aiDailyLimit: 200, language: EN ? 'en' : 'zh' }
   if (window.__DEMO_THEME__) settings.theme = window.__DEMO_THEME__
   const counts = { inboxUnread: 12, important: 5, todos: todos.length, later: 2, drafts: 1, bills: 2, followups: 3 }
   const status = accounts.map((a) => ({ accountId: a.id, state: 'idle', error: '', errorKind: '', lastOk: t(60e3), fails: 0, progressDone: 0, progressTotal: 0, log: [] }))
@@ -94,7 +126,8 @@
   }
 
   const handlers = {
-    bootstrap: () => ({ accounts, folders, settings, status, aiConfigured: true, aiUsedToday: 37, counts, version: '0.2.2', oauth: ['gmail', 'outlook'] }),
+    bootstrap: () => ({ accounts, folders, settings, status, aiConfigured: true, aiUsedToday: 37, counts, version: '0.2.2', oauth: ['gmail', 'outlook'], lang: EN ? 'en' : 'zh' }),
+    ui_lang: () => (EN ? 'en' : 'zh'),
     get_counts: () => counts,
     get_folders: () => folders,
     status_list: () => status,
@@ -111,10 +144,10 @@
       reply: [msgs[0], msgs[2], msgs[11]].map((m) => item(m)),
       bills: [msgs[3], msgs[12]].map((m) => item(m)),
       todos: todos.slice(0, 4).map((x) => ({ id: x.id, msgId: x.msgId, text: x.text, due: x.due })),
-      followups: [item({ ...msgs[11], fromName: 'Ahmed Al-Sayed', subject: 'Re: Quotation — kitchen storage (sent Oct 30)', aiSummary: '你 10 月 30 日发的报价，对方 5 天没回' })],
+      followups: [item({ ...msgs[11], fromName: 'Ahmed Al-Sayed', subject: 'Re: Quotation — kitchen storage (sent Oct 30)', aiSummary: X('你 10 月 30 日发的报价，对方 5 天没回', 'You sent a quote on Oct 30; no reply for 5 days') })],
       followupTotal: 3, bulkUnread: 9, newCount: 14,
     }),
-    digest_overview: () => ({ text: '今天最要紧的是两个外贸询盘：意大利的 Marco 要 2000 套竹餐具报价，11 月 20 日截止，还要先寄样；德国的 Sarah 对样品满意，准备下 600 件橡木托盘，等你确认 12 月交期。公司那边，财务催你周五前补两张发票，产品部等你今天选定包装稿。信用卡 11 月 25 日到期，应还 ¥8,426.50。', at: t(10 * 60e3) }),
+    digest_overview: () => ({ text: EN ? 'The two sales inquiries matter most today: Marco in Italy wants a quote for 2,000 bamboo cutlery sets by Nov 20 and samples first, and Sarah in Germany liked the samples and is ready to order 600 oak trays once you confirm December delivery. At work, Finance needs two hotel receipts by Friday and the product team is waiting for your packaging pick today. Your credit card statement of $1,186.40 is due Nov 25.' : '今天最要紧的是两个外贸询盘：意大利的 Marco 要 2000 套竹餐具报价，11 月 20 日截止，还要先寄样；德国的 Sarah 对样品满意，准备下 600 件橡木托盘，等你确认 12 月交期。公司那边，财务催你周五前补两张发票，产品部等你今天选定包装稿。信用卡 11 月 25 日到期，应还 ¥8,426.50。', at: t(10 * 60e3) }),
     ai_draft: () => full(msgs[0]).ai.reply,
     has_ai_key: () => true,
     'plugin:window|is_maximized': () => false,

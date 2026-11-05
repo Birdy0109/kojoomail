@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Icon } from './icons'
 import { avatarColors, initials } from './lib/format'
 import { useApp } from './store'
+import { L } from './lib/i18n'
 
 export const isDark = () => document.documentElement.dataset.theme === 'dark'
 
@@ -29,7 +30,7 @@ const STROKES = [
 export function Kojoo({ width = 120, stroke = 4.6, mail = false }: { width?: number; stroke?: number; mail?: boolean }) {
   const vbw = mail ? 240 : 180
   return (
-    <svg className="kj" viewBox={`0 0 ${vbw} 110`} width={(width * vbw) / 180} height={(width * 110) / 180} role="img" aria-label="加载中" style={{ overflow: 'visible' }}>
+    <svg className="kj" viewBox={`0 0 ${vbw} 110`} width={(width * vbw) / 180} height={(width * 110) / 180} role="img" aria-label={L('加载中', 'Loading')} style={{ overflow: 'visible' }}>
       <g>
         {STROKES.map((d, i) => <path key={i} className={`s${i}`} pathLength={1} d={d} style={{ strokeWidth: stroke }} />)}
         <circle className="kdot" cx={104} cy={43} r={stroke * 0.62} fill="currentColor" />
@@ -40,7 +41,7 @@ export function Kojoo({ width = 120, stroke = 4.6, mail = false }: { width?: num
 }
 
 /** 加载不到 0.3 秒不显示，避免一闪 */
-export function Loader({ text = '正在加载…', width = 110 }: { text?: string; width?: number }) {
+export function Loader({ text = L('正在加载…', 'Loading…'), width = 110 }: { text?: string; width?: number }) {
   return (
     <div className="loader">
       <Kojoo width={width} />

@@ -1,6 +1,7 @@
 // 和 Rust 后端通信：invoke 调命令，listen 收事件
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { L } from './i18n'
 
 export type Addr = { name: string; email: string }
 export type Account = {
@@ -26,10 +27,11 @@ export type Settings = {
   autostart: boolean; closeToTray: boolean; defaultAccount: number | null; notify: 'important' | 'all' | 'none'
   remoteImages: 'ask' | 'always'; undoSendSecs: number
   notifyPreview: boolean; aiProvider: string; aiBase: string; aiModel: string; aiModelFine: string; aiModelBackup: string; aiAuto: boolean; aiScope: 'skip_bulk' | 'all' | 'important'; aiDailyLimit: number
+  language: 'auto' | 'zh' | 'en'
 }
 export type Counts = { inboxUnread: number; important: number; todos: number; later: number; drafts: number; bills: number; followups: number }
 export type CatCount = { cat: string; total: number; unread: number }
-export type Boot = { accounts: Account[]; folders: Folder[]; settings: Settings; status: Status[]; aiConfigured: boolean; aiUsedToday: number; counts: Counts; version: string; oauth: string[] }
+export type Boot = { accounts: Account[]; folders: Folder[]; settings: Settings; status: Status[]; aiConfigured: boolean; aiUsedToday: number; counts: Counts; version: string; oauth: string[]; lang: 'zh' | 'en' }
 export type MsgLite = {
   id: number; accountId: number; folderId: number; role: string; fromName: string; fromAddr: string; to: Addr[]; subject: string; snippet: string
   date: number; seen: boolean; flagged: boolean; answered: boolean; hasAtt: boolean; bulk: boolean
@@ -111,6 +113,8 @@ export const api = {
   aiDraft: (id: number, tone: string, lang: string, hint: string) => call<string>('ai_draft', { id, tone, lang, hint }),
   aiRewrite: (text: string, op: string, arg: string) => call<string>('ai_rewrite', { text, op, arg }),
   saveSettings: (s: Settings) => call<Settings>('save_settings', { s }),
+  /** 当前界面语言（「跟随系统」由后端按系统语言定） */
+  uiLang: () => call<'zh' | 'en'>('ui_lang'),
   setAiKey: (key: string) => call<boolean>('set_ai_key', { key }),
   hasAiKey: () => call<boolean>('has_ai_key'),
   aiTest: () => call<{ ms: number; model: string }>('ai_test'),
@@ -127,4 +131,4 @@ export function on<T>(event: string, cb: (p: T) => void): Promise<UnlistenFn> {
   return listen<T>(event, (e) => cb(e.payload))
 }
 
-export const errText = (e: unknown) => (typeof e === 'string' ? e : e instanceof Error ? e.message : '出错了')
+export const errText = (e: unknown) => (typeof e === 'string' ? e : e instanceof Error ? e.message : L('出错了', 'Something went wrong'))

@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import { ask } from './lib/ask'
 import { api, errText, type Account, type AskOut, type CatCount, type Counts, type Folder, type MsgFull, type MsgLite, type Settings, type Status, type DraftIn } from './lib/api'
+import { L, syncLang } from './lib/i18n'
+
+/** 点了发送、还在可撤销倒计时里的邮件数：这时不能重新加载界面（换语言） */
+export const pendingSends = { n: 0 }
 
 export type View =
   | { kind: 'all'; accountId?: number }
@@ -117,6 +121,8 @@ const queryFor = (s: Pick<S, 'view' | 'filter' | 'search'>, offset: number, limi
 let markingAll = false
 // 问号、「吗/呢」结尾才算提问；疑问词开头的还要够长，免得「哪吒汽车」「几何」这种搜索也去调模型
 const isQuestion = (t: string) => /[?？]\s*$|[吗呢]\s*$/.test(t) || (t.length >= 8 && /^(多少|哪|什么|谁|是否|有没有|几|怎么|为什么|何时|上次|最近一次)/.test(t))
+  // 英文：what/when/how 这类疑问词开头且至少 4 个词才算提问；「do not reply」「can opener」这种搜索不算
+  || (/^(what|when|where|who|which|how|why)\b/i.test(t) && t.trim().split(/\s+/).length >= 4)
 /** 一键已读之后又点开看过的邮件：撤销时不要把它们改回未读 */
 const openedSince = new Set<number>()
 const BULK_CONFIRM = 50
@@ -139,7 +145,7 @@ async function bulkRead(over: Partial<ReturnType<typeof queryFor>>, emptyText: s
     openedSince.clear()
     const hit = new Set(ids)
     useApp.setState({ items: useApp.getState().items.map((m) => (hit.has(m.id) ? { ...m, seen: true } : m)) })
-    s.toast(doneText(ids.length), { action: { label: '撤销', run: () => s.mark(ids.filter((id) => !openedSince.has(id)), { seen: false }) }, ttl: 6000 })
+    s.toast(doneText(ids.length), { action: { label: L('撤销', 'Undo'), run: () => s.mark(ids.filter((id) => !openedSince.has(id)), { seen: false }) }, ttl: 6000 })
   } catch (e) { s.toast(errText(e), { kind: 'err' }) } finally { markingAll = false }
 }
 
@@ -182,6 +188,8 @@ export const useApp = create<S>((set, get) => ({
 
   boot: async () => {
     const b = await api.bootstrap()
+    // 设置里的语言和当前显示的不一样（换了系统语言、或在别处改过）：重新加载成对的语言
+    if (syncLang(b.lang)) return
     const status: Record<number, Status> = {}
     for (const s of b.status) status[s.accountId] = s
     set({ accounts: b.accounts, folders: b.folders, settings: b.settings, status, counts: b.counts, aiConfigured: b.aiConfigured, aiUsedToday: b.aiUsedToday, version: b.version, oauth: b.oauth, ready: true })
@@ -243,9 +251,9 @@ export const useApp = create<S>((set, get) => ({
     try {
       // 封数是确认框里给用户看过的；这里不用当前列表的 maxId（换了筛选、视图时它对不上）
       const ids = await api.viewIds({ ...queryFor(s, 0, 1), search: '', ...over, maxId: null })
-      if (!ids.length) { s.toast(`没有要归档的${what}`); return }
-      if (!await ask(`把 ${ids.length} 封${what}都归档？归档后可以在「归档」文件夹里找到，弹出的提示里也能撤销。`)) return
-      await get().move(ids, 'archive', '归档')
+      if (!ids.length) { s.toast(L(`没有要归档的${what}`, `No ${what} to archive`)); return }
+      if (!await ask(L(`把 ${ids.length} 封${what}都归档？归档后可以在「归档」文件夹里找到，弹出的提示里也能撤销。`, `Archive ${ids.length} ${what}? You'll find them in the Archive folder, and you can undo from the notice that appears.`))) return
+      await get().move(ids, 'archive', L('归档', 'archived'))
     } catch (e) { s.toast(errText(e), { kind: 'err' }) }
   },
 
@@ -320,8 +328,8 @@ export const useApp = create<S>((set, get) => ({
     set({ checked: c })
   },
 
-  markAllRead: () => bulkRead({}, '这里没有未读邮件', (n) => `已把 ${n} 封标为已读`, (n) => `把这里的 ${n} 封未读邮件都标为已读？`),
-  tidy: () => bulkRead({ filter: 'bulk', search: '' }, '通知和订阅都已经读过了', (n) => `已把 ${n} 封通知和订阅标为已读`, (n) => `把 ${n} 封没读的通知和订阅都标为已读？`),
+  markAllRead: () => bulkRead({}, L('这里没有未读邮件', 'No unread emails here'), (n) => L(`已把 ${n} 封标为已读`, `Marked ${n} as read`), (n) => L(`把这里的 ${n} 封未读邮件都标为已读？`, `Mark all ${n} unread emails here as read?`)),
+  tidy: () => bulkRead({ filter: 'bulk', search: '' }, L('通知和订阅都已经读过了', 'All notifications and newsletters are already read'), (n) => L(`已把 ${n} 封通知和订阅标为已读`, `Marked ${n} notifications and newsletters as read`), (n) => L(`把 ${n} 封没读的通知和订阅都标为已读？`, `Mark ${n} unread notifications and newsletters as read?`)),
   loadCats: async () => {
     const s = get()
     const k = s.view.kind
@@ -352,7 +360,7 @@ export const useApp = create<S>((set, get) => ({
     const s = get()
     const picked = s.items.filter((m) => ids.includes(m.id))
     if (target === 'trash' && picked.length && picked.every((m) => m.role === 'trash')) {
-      if (await ask(`彻底删除这 ${picked.length} 封邮件？删除后不能恢复。`)) await get().removeForever(ids)
+      if (await ask(L(`彻底删除这 ${picked.length} 封邮件？删除后不能恢复。`, `Permanently delete ${picked.length === 1 ? 'this email' : `these ${picked.length} emails`}? This can't be undone.`))) await get().removeForever(ids)
       return
     }
     const idx = s.selected ? s.items.findIndex((m) => m.id === s.selected) : -1
@@ -363,8 +371,9 @@ export const useApp = create<S>((set, get) => ({
     if (next !== s.selected) get().select(next)
     try {
       const token = await api.move(ids, target)
-      get().toast(`${ids.length > 1 ? ids.length + ' 封邮件' : '邮件'}已${label}`, {
-        action: { label: '撤销', run: async () => { await api.undoMove(token); get().loadList(true); get().refreshMeta() } },
+      // label 中文是动作（归档），英文是过去分词（archived）
+      get().toast(L(`${ids.length > 1 ? ids.length + ' 封邮件' : '邮件'}已${label}`, `${ids.length > 1 ? ids.length + ' emails' : 'Email'} ${label}`), {
+        action: { label: L('撤销', 'Undo'), run: async () => { await api.undoMove(token); get().loadList(true); get().refreshMeta() } },
         ttl: (get().settings?.undoSendSecs || 5) * 1000,
       })
       get().refreshMeta()
@@ -379,7 +388,7 @@ export const useApp = create<S>((set, get) => ({
     if (get().selected && ids.includes(get().selected!)) set({ selected: null, open: null })
     try {
       await api.deleteForever(ids)
-      get().toast(`已彻底删除 ${ids.length} 封邮件`)
+      get().toast(L(`已彻底删除 ${ids.length} 封邮件`, ids.length === 1 ? 'Email permanently deleted' : `${ids.length} emails permanently deleted`))
     } catch (e) {
       get().toast(errText(e), { kind: 'err' })
     }
@@ -390,7 +399,7 @@ export const useApp = create<S>((set, get) => ({
     if (until) {
       set({ items: get().items.filter((m) => !ids.includes(m.id) || get().view.kind === 'later') })
       if (get().selected && ids.includes(get().selected!) && get().view.kind !== 'later') set({ selected: null, open: null })
-      get().toast('已放到「稍后处理」')
+      get().toast(L('已放到「稍后处理」', 'Snoozed'))
     }
     get().refreshMeta()
   },
@@ -398,8 +407,8 @@ export const useApp = create<S>((set, get) => ({
   openCompose: (mode, base = null, extra = {}) => set({ compose: { key: ++seq, mode, base, ...extra } }),
   openAiSettings: () => set({ page: 'settings', settingsTab: 'ai' }),
   installUpdate: async (version) => {
-    if (get().compose && !await ask('写信窗口还开着，更新会关闭程序（草稿会自动保存）。继续吗？')) return
-    const t = get().toast(`正在下载 ${version}…装好后会自动重启`, { ttl: 600000 })
+    if (get().compose && !await ask(L('写信窗口还开着，更新会关闭程序（草稿会自动保存）。继续吗？', "You're still writing an email. Updating will close the app (your draft is saved automatically). Continue?"))) return
+    const t = get().toast(L(`正在下载 ${version}…装好后会自动重启`, `Downloading ${version}… The app will restart when it's installed`), { ttl: 600000 })
     try { await api.installUpdate() } catch (e) { get().drop(t); get().toast(errText(e), { kind: 'err', ttl: 8000 }) }
   },
 
@@ -414,11 +423,22 @@ export const useApp = create<S>((set, get) => ({
   saveSettings: async (p) => {
     const cur = get().settings
     if (!cur) return
+    // 换语言要重新加载界面：写信窗口开着、或刚点了发送还在可撤销的那几秒里，会丢内容或发不出去
+    if (p.language !== undefined && p.language !== cur.language && (get().compose || pendingSends.n > 0)) {
+      get().toast(L('先关闭写信窗口、等发送完成，再切换语言', 'Close the compose window and wait for sending to finish before switching language'), { kind: 'err' })
+      return
+    }
     const next = { ...cur, ...p }
     set({ settings: next })
     try {
       const saved = await api.saveSettings(next)
       set({ settings: saved })
+      // 保存期间可能打开了写信窗口或点了发送：那就先不重新加载，下次启动生效
+      if (p.language !== undefined) {
+        const lang = await api.uiLang()
+        if (get().compose || pendingSends.n > 0) get().toast(L('语言已保存，下次启动时生效', 'Language saved. It takes effect the next time Kojoo Mail starts'))
+        else syncLang(lang)
+      }
     } catch (e) {
       set({ settings: cur })
       get().toast(errText(e), { kind: 'err' })

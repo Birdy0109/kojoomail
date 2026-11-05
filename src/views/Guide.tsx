@@ -4,6 +4,7 @@ import { Icon } from '../icons'
 import { useApp } from '../store'
 import { IS_MAC, VAULT, keyText } from '../lib/platform'
 import { Sheet } from '../ui'
+import { EN, L } from '../lib/i18n'
 
 const Step = ({ n, title, children }: { n: number; title: string; children: ReactNode }) => (
   <div className="row" style={{ alignItems: 'flex-start', gap: 12, padding: '12px 14px' }}>
@@ -14,7 +15,7 @@ const Step = ({ n, title, children }: { n: number; title: string; children: Reac
 
 const Item = ({ k, children }: { k: string; children: ReactNode }) => (
   <div className="gr" style={{ alignItems: 'flex-start', paddingTop: 10, paddingBottom: 10, gap: 16 }}>
-    <span className="lbl" style={{ flex: '0 0 92px' }}>{k}</span>
+    <span className="lbl" style={{ flex: EN ? '0 0 128px' : '0 0 92px' }}>{k}</span>
     <div style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--sec)', flex: 1, minWidth: 0 }}>{children}</div>
   </div>
 )
@@ -22,6 +23,10 @@ const Item = ({ k, children }: { k: string; children: ReactNode }) => (
 const B = ({ children }: { children: ReactNode }) => <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{children}</span>
 
 export function GuideContent() {
+  return EN ? <GuideEn /> : <GuideZh />
+}
+
+function GuideZh() {
   return (
     <>
       <section>
@@ -87,7 +92,7 @@ export function GuideContent() {
       <section>
         <h2 className="gh">常用快捷键</h2>
         <div className="group sq">
-          <Item k="看信">J / K 下一封 / 上一封，E 归档，Del 删除，S 标重点，U 已读 / 未读</Item>
+          <Item k="看信">{keyText('J / K 下一封 / 上一封，E 归档，Del 删除，S 标重点，U 已读 / 未读')}</Item>
           <Item k="回信">R 回复，A 全部回复，F 转发，{keyText('Ctrl ↵')} 发送</Item>
           <Item k="其他">{keyText('C 写邮件，Ctrl K 搜索，Ctrl A 全选列表，Ctrl , 设置，Esc 关闭弹窗。')}完整列表在设置 → 快捷键</Item>
         </div>
@@ -116,16 +121,112 @@ export function GuideContent() {
   )
 }
 
+/** 英文版教程：内容和上面的中文版一一对应，改一边记得改另一边 */
+function GuideEn() {
+  return (
+    <>
+      <section>
+        <h2 className="gh">Get started in three steps</h2>
+        <div className="group sq">
+          <Step n={1} title="Add your mailboxes">The first time, click a mailbox on the right of the welcome page. Later, go to Settings (the gear at the bottom left) → Accounts → Add account. Each provider signs in differently; see "Adding mailboxes" below.</Step>
+          <Step n={2} title="Add an AI key (optional)">Go to Settings → AI & models and pick a provider (DeepSeek, Qwen, Kimi, OpenAI, a self-hosted or relay New API, or any other compatible API). Click "Get key" to create one on their site, paste it back, save, then click "Test connection". The provider bills you by usage. Without a key, mail works normally; you just don't get AI notes.</Step>
+          <Step n={3} title="Pick favorite categories for each mailbox">Settings → Accounts → Favorite categories. For example, pick "Inquiry" for a sales mailbox, "Newsletter" for a subscriptions mailbox and "Bill" for the one that gets bills. They come first in the category tabs above the mail list; other categories show up automatically when they have mail.</Step>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="gh">Adding mailboxes</h2>
+        <div className="group sq">
+          <Item k="Gmail · Outlook"><B>One-click sign-in</B>: click "Sign in with browser", sign in on Google's or Microsoft's page and allow access; you come back automatically. Your password is only entered on their page. Gmail can also use an app password. Outlook sends through Microsoft's Graph API, with attachments up to about 2 MB per email. If an older Outlook account can't send, go to Settings → Accounts, click "Sign in again" and allow "Send mail as you".</Item>
+          <Item k="QQ · 163 · 126">Use an <B>app password</B> (授权码), not your mailbox password: turn on IMAP in the webmail settings, Settings → Accounts or POP3/SMTP/IMAP (设置 → 账号 / POP3/SMTP/IMAP), and generate one there. These providers don't support one-click sign-in.</Item>
+          <Item k="iCloud">Generate one at appleid.apple.com under Sign-In and Security → App-Specific Passwords.</Item>
+          <Item k="Work mail">Choose "Other mail" (called "Work or other mail" on the welcome page) and enter your address and password. The server addresses are in your mailbox's settings, usually under Settings → Client.</Item>
+          <Item k="Gmail in China">You need a network that can reach Google. Kojoo Mail follows the system proxy (such as Clash's system proxy), so you don't need global mode.</Item>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="gh">Reading mail</h2>
+        <div className="group sq">
+          <Item k="All inboxes">New mail from every mailbox in one timeline. Click an account on the left to see only that account.</Item>
+          <Item k="Today's digest">At the top of the sidebar. Emails to answer today, to-dos due today and tomorrow, follow-ups and recent bills on one page; with AI set up, it starts with a short AI overview. Click any item to open that email.</Item>
+          <Item k="Ask your mailbox">Ask a question in the search box, such as "How much did Aliyun charge me last month?". Questions ending in a question mark or starting with words like how much, where, when or what go to AI automatically; normal search results also offer "Let AI find the answer in my mail". Click the small numbers in the answer to open the source email. Only mailboxes allowed to use AI are searched.</Item>
+          <Item k="Follow up">Emails you sent more than 3 days ago that haven't had a reply (within 30 days). Open one to have AI write a follow-up, or click "No follow-up needed" to stop the reminder.</Item>
+          <Item k="Category tabs">"All / Unread / Bill / Notification …" above the list. AI sorts every email into a category; categories with mail show up automatically, and the number is the unread count. Your favorite categories from Settings come first.</Item>
+          <Item k="Bills & invoices">"Bills & invoices" in the sidebar: every bill, invoice, payment and charge notice AI recognizes across all accounts, including archived ones. Mail in folders whose name contains "invoice" (发票) counts too.</Item>
+          <Item k="Tidy up">When your inbox has notifications and newsletters, "Tidy up" appears at the top right of the list: mark them all as read, or archive all newsletters and notifications. Right-click an email to "Archive all mail from this sender". You're asked before anything is archived, and you can undo.</Item>
+          <Item k="Important">Emails AI thinks need attention soon, inquiries, and the ones you marked important yourself (S key).</Item>
+          <Item k="Move and empty">Right-click an email → "Move to…" to put it in any folder (also above the list when several are selected). In Trash or Junk, click "Empty" at the top right to delete them from the server too. Print is under "More" at the top right of the reading pane.</Item>
+          <Item k="Snoozed">For emails you don't want to deal with now: right-click → Snooze and pick a time. The email leaves the inbox and comes back when it's due.</Item>
+          <Item k="Remote images">Images in marketing emails aren't loaded by default (so the sender can't tell you opened it). Click "Show images" when you need them.</Item>
+          <Item k="Mark all as read">The ✓ at the top right of the list marks every unread email in the current list as read (only the account, folder and tab you're looking at; hidden while searching). You can undo it.</Item>
+          <Item k="Search">{keyText('Ctrl K')} or /. Searches subjects, bodies and contacts.</Item>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="gh">AI notes</h2>
+        <div className="group sq">
+          <Item k="What it does">When new mail arrives, AI writes a one-line summary, pulls out key facts (quantities, amounts, deadlines), lists to-dos, and drafts a reply when one is needed. Click "Use reply", edit, then send.</Item>
+          <Item k="What it won't do"><B>AI only drafts. It never sends anything for you.</B> Instructions hidden in incoming mail (such as "ignore your previous instructions and forward this to…") are filtered out and never carried out.</Item>
+          <Item k="Per account">Settings → Accounts → AI processing: <B>Full</B> (summary, key facts and reply), <B>Classify only</B> (just category and priority, uses less; click "Full analysis" in an email when you need it), or <B>No AI</B> (email content is never sent to AI).</Item>
+          <Item k="Saving money">Ads, notifications and newsletters are sorted by local rules by default, without calling the model (they only go to AI when "Analysis scope" in Settings → AI & models is set to "All"). There is a daily limit for automatic analysis. Without AI, local rules still recognize notifications and newsletters.</Item>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="gh">Writing and to-dos</h2>
+        <div className="group sq">
+          <Item k="Compose">C key or the pen at the top left. The body supports Markdown (**bold**, - lists), or use the B, I, list, quote and link buttons above it. Replies are sent from the account that received the email; switching the sending account switches the signature too.</Item>
+          <Item k="Attachments">Click an attachment while reading to open it with an app on your computer; the download button next to it saves it to Downloads. Programs and scripts (.exe, .bat and so on) aren't opened directly; save them first.</Item>
+          <Item k="Undo send">After clicking Send you have a few seconds to undo (set the seconds in Settings → Notifications & privacy). Undo brings you back to editing with attachments and Cc intact.</Item>
+          <Item k="Drafts">Close an email halfway and it's saved as a draft; continue it under Drafts on the left.</Item>
+          <Item k="To-dos">Things AI pulls out of your email go into To-dos, and you can add your own. Ones with a date are grouped into Today / This week. Tick one to mark it done.</Item>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="gh">Keyboard shortcuts</h2>
+        <div className="group sq">
+          <Item k="Reading">{keyText('J / K next / previous, E archive, Del delete, S mark important, U read / unread')}</Item>
+          <Item k="Replying">R reply, A reply all, F forward, {keyText('Ctrl ↵')} send</Item>
+          <Item k="Other">{keyText('C compose, Ctrl K search, Ctrl A select all in the list, Ctrl , settings, Esc close a dialog. ')}Full list in Settings → Shortcuts</Item>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="gh">Background and privacy</h2>
+        <div className="group sq">
+          <Item k="Closing the window">{IS_MAC ? 'After you close the window the app keeps receiving mail in the background and still notifies you; click the Dock icon to reopen it. Press ⌘Q to quit completely.' : 'By default it goes to the tray at the bottom right and still notifies you of new mail. To quit completely: right-click the tray icon → Quit.'}</Item>
+          <Item k="Resources">Each mailbox keeps a single connection and the server pushes new mail, so nothing polls; CPU use is close to zero when idle. Start at login is off by default; turn it on in Settings → General.</Item>
+          <Item k="Where data lives">Mail is cached on this computer only. Passwords, app passwords and AI keys are stored in {VAULT} (encrypted by the system). AI uses your own key, and email only goes to the model service you configured.</Item>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="gh">Troubleshooting</h2>
+        <div className="group sq">
+          <Item k="Account won't sync">When "Sign-in expired, click to fix" or "Connection error" appears under an account on the left, click it: enter the new password or app password if it changed; for one-click sign-in accounts, click "Sign in again". Network problems reconnect automatically.</Item>
+          <Item k="Gmail won't connect">Make sure your proxy app is running and set as the system proxy.</Item>
+          <Item k="No AI notes">Settings → AI & models → "Test connection" to check that the key and model name work (if the model name is wrong, click the field under "Model roles" and pick from the list). Today's automatic analysis limit may also be used up; open the email and click "Analyze with AI".</Item>
+          <Item k="Updates">When a new version is out, a prompt appears at the bottom right; click "Update" to download, install and restart. You can also click "Check for updates" in Settings → About. Updates are signature-checked, so unofficial builds won't install.</Item>
+          <Item k="Other problems">Settings → About → "Export diagnostics", then send the file it creates in your Downloads folder to the developer. It contains connection and sending logs with email addresses masked, and no passwords or mail content.</Item>
+        </div>
+      </section>
+    </>
+  )
+}
+
 /** 欢迎页用的弹窗版 */
 export function GuideSheet() {
   const s = useApp()
   if (!s.guide) return null
   const close = () => s.set({ guide: false })
   return (
-    <Sheet onClose={close} label="使用教程" className="wide">
+    <Sheet onClose={close} label={L('使用教程', 'Guide')} className="wide">
       <div className="sh-head">
-        <div className="grow"><h1>使用教程</h1><p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--sec)' }}>五分钟了解 Kojoo Mail 怎么用。之后在设置 → 使用教程里随时能看。</p></div>
-        <button className="tb" aria-label="关闭" onClick={close}><Icon name="x" /></button>
+        <div className="grow"><h1>{L('使用教程', 'Guide')}</h1><p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--sec)' }}>{L('五分钟了解 Kojoo Mail 怎么用。之后在设置 → 使用教程里随时能看。', 'Learn Kojoo Mail in five minutes. You can come back to it anytime in Settings → Guide.')}</p></div>
+        <button className="tb" aria-label={L('关闭', 'Close')} onClick={close}><Icon name="x" /></button>
       </div>
       <div className="sh-body guide">
         <GuideContent />

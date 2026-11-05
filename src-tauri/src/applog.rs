@@ -26,7 +26,7 @@ pub fn init(data_dir: &std::path::Path) {
         if let Some(p) = PATH.get() {
             append(p, "PANIC", &format!("{msg} @ {at}"));
         }
-        alert(&format!("Kojoo Mail 遇到内部错误，需要关闭。\n\n{msg}\n\n详情已写入日志：{}", path_text()));
+        alert(&tr!("Kojoo Mail 遇到内部错误，需要关闭。\n\n{msg}\n\n详情已写入日志：{}", "Kojoo Mail hit an internal error and needs to close.\n\n{msg}\n\nDetails were written to the log: {}", path_text()));
     }));
     write("INFO", &format!("启动 v{} · {}", env!("CARGO_PKG_VERSION"), os_build()));
 }
@@ -94,7 +94,7 @@ pub fn os_build() -> String {
 /// 启动失败：记日志、弹框说明原因
 pub fn fatal(msg: &str) {
     write("FATAL", msg);
-    alert(&format!("Kojoo Mail 启动失败。\n\n{msg}\n\n日志：{}", path_text()));
+    alert(&tr!("Kojoo Mail 启动失败。\n\n{msg}\n\n日志：{}", "Kojoo Mail couldn't start.\n\n{msg}\n\nLog: {}", path_text()));
 }
 
 fn alert(text: &str) {

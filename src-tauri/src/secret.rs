@@ -15,14 +15,14 @@ fn service() -> String {
 }
 
 fn entry(key: &str) -> Result<keyring::Entry> {
-    keyring::Entry::new(&service(), key).map_err(|e| anyhow!("凭据管理器不可用：{e}"))
+    keyring::Entry::new(&service(), key).map_err(|e| anyhow!(tr!("凭据管理器不可用：{e}", "The credential store isn't available: {e}")))
 }
 
 pub fn set(key: &str, value: &str) -> Result<()> {
     if key == AI_KEY {
         *AI_CACHE.lock().unwrap() = None;
     }
-    entry(key)?.set_password(value).map_err(|e| anyhow!("保存密码失败：{e}"))
+    entry(key)?.set_password(value).map_err(|e| anyhow!(tr!("保存密码失败：{e}", "Couldn't save the password: {e}")))
 }
 
 pub fn get(key: &str) -> Option<String> {

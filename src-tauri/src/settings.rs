@@ -32,6 +32,8 @@ pub struct Settings {
     /// skip_bulk | all | important
     pub ai_scope: String,
     pub ai_daily_limit: i64,
+    /// 界面语言：auto（跟随系统）| zh | en
+    pub language: String,
 }
 
 impl Default for Settings {
@@ -57,6 +59,7 @@ impl Default for Settings {
             ai_auto: true,
             ai_scope: "skip_bulk".into(),
             ai_daily_limit: 200,
+            language: "auto".into(),
         }
     }
 }
@@ -69,6 +72,7 @@ pub fn load(ctx: &Ctx) -> Settings {
         let st = ctx.store.lock().unwrap();
         st.setting("app").and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default()
     };
+    crate::i18n::apply(&s.language);
     *ctx.settings_cache.lock().unwrap() = Some(s.clone());
     s
 }
@@ -78,10 +82,14 @@ pub fn save(ctx: &Ctx, s: &Settings) -> anyhow::Result<()> {
     s.font_size = s.font_size.clamp(12.0, 16.0);
     s.ai_daily_limit = s.ai_daily_limit.clamp(0, 5000);
     s.undo_send_secs = s.undo_send_secs.min(30);
+    if !["auto", "zh", "en"].contains(&s.language.as_str()) {
+        s.language = "auto".into();
+    }
     {
         let st = ctx.store.lock().unwrap();
         st.set_setting("app", &serde_json::to_string(&s)?)?;
     }
+    crate::i18n::apply(&s.language);
     *ctx.settings_cache.lock().unwrap() = Some(s);
     Ok(())
 }

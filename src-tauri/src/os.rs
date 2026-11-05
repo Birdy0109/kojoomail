@@ -34,7 +34,7 @@ pub fn open_url(u: &str) -> std::io::Result<()> {
         let r = ShellExecuteW(None, w!("open"), PCWSTR(url.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL);
         // 返回值大于 32 才是成功
         if r.0 as isize <= 32 {
-            return Err(std::io::Error::other(format!("系统没能打开链接（错误 {}）", r.0 as isize)));
+            return Err(std::io::Error::other(tr!("系统没能打开链接（错误 {}）", "The system couldn't open the link (error {})", r.0 as isize)));
         }
         Ok(())
     }

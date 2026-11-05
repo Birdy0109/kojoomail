@@ -15,7 +15,7 @@ pub struct UpdateInfo {
 }
 
 async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let u = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| format!("检查更新失败：{e}"))?;
+    let u = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| tr!("检查更新失败：{e}", "Couldn't check for updates: {e}"))?;
     Ok(u.map(|u| UpdateInfo { version: u.version.clone(), notes: u.body.clone().unwrap_or_default() }))
 }
 
@@ -48,11 +48,11 @@ pub async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> 
 /// 下载、验签、运行安装包（安装时程序会退出），装完重启
 #[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
-    let u = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| format!("检查更新失败：{e}"))?.ok_or("已经是最新版")?;
+    let u = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| tr!("检查更新失败：{e}", "Couldn't check for updates: {e}"))?.ok_or(crate::i18n::t("已经是最新版", "You're on the latest version"))?;
     crate::applog::info(&format!("开始更新到 {}", u.version));
     u.download_and_install(|_, _| {}, || {}).await.map_err(|e| {
-        crate::applog::warn(&format!("更新失败：{e}"));
-        format!("更新失败：{e}")
+        crate::applog::warn(&tr!("更新失败：{e}", "Update failed: {e}"));
+        tr!("更新失败：{e}", "Update failed: {e}")
     })?;
     app.restart();
 }

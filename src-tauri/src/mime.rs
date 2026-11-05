@@ -116,7 +116,7 @@ pub fn parse_full(raw: &[u8]) -> Full {
             .to_lowercase();
         let inline = p.content_id().is_some() && mime.starts_with("image/") && p.attachment_name().is_none();
         let name = p.attachment_name().map(|s| s.to_string()).unwrap_or_else(|| {
-            if p.is_message() { format!("邮件附件 {}.eml", idx + 1) } else { format!("附件 {}", idx + 1) }
+            if p.is_message() { tr!("邮件附件 {}.eml", "Attached email {}.eml", idx + 1) } else { tr!("附件 {}", "Attachment {}", idx + 1) }
         });
         atts.push(AttInfo { idx, name, size: p.contents().len(), mime, inline });
     }
@@ -127,7 +127,7 @@ pub fn parse_full(raw: &[u8]) -> Full {
 pub fn attachment_bytes(raw: &[u8], idx: usize) -> Option<(String, Vec<u8>)> {
     let m = MessageParser::default().parse(raw)?;
     let p = m.attachment(idx as u32 as usize)?;
-    let name = p.attachment_name().map(|s| s.to_string()).unwrap_or_else(|| format!("附件 {}", idx + 1));
+    let name = p.attachment_name().map(|s| s.to_string()).unwrap_or_else(|| tr!("附件 {}", "Attachment {}", idx + 1));
     Some((name, p.contents().to_vec()))
 }
 

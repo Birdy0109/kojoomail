@@ -1,8 +1,16 @@
+/// 按界面语言选格式串：tr!("连不上 {host}", "Can't connect to {host}")；参数写法和 format! 一样
+macro_rules! tr {
+    ($zh:literal, $en:literal $(, $arg:expr)* $(,)?) => {
+        if crate::i18n::en() { format!($en $(, $arg)*) } else { format!($zh $(, $arg)*) }
+    };
+}
+
 mod ai;
 mod applog;
 mod assist;
 mod commands;
 mod graph;
+mod i18n;
 mod mailbox;
 mod mime;
 mod net;
@@ -59,6 +67,24 @@ pub fn set_low_memory(w: &tauri::WebviewWindow, low: bool) {
     });
 }
 
+/// 托盘菜单项：改界面语言时重设文字
+pub struct TrayItems {
+    open: MenuItem<tauri::Wry>,
+    compose: MenuItem<tauri::Wry>,
+    sync: MenuItem<tauri::Wry>,
+    quit: MenuItem<tauri::Wry>,
+}
+
+impl TrayItems {
+    pub fn set_texts(&self) {
+        use i18n::t;
+        let _ = self.open.set_text(t("打开 Kojoo Mail", "Open Kojoo Mail"));
+        let _ = self.compose.set_text(t("写邮件", "New email"));
+        let _ = self.sync.set_text(t("立即同步", "Sync now"));
+        let _ = self.quit.set_text(t("退出", "Quit"));
+    }
+}
+
 /// 磨砂玻璃用系统的亚克力材质：Windows 11 22H2（build 22621）起由系统绘制，拖动、缩放不卡；
 /// 更早的系统透明窗口没有底或会卡，用不透明的
 fn glass_supported() -> bool {
@@ -93,6 +119,8 @@ fn data_dir() -> std::path::PathBuf {
 }
 
 pub fn run() {
+    // 读到设置之前先按系统语言：启动失败的弹窗也能看懂；读到设置后按用户选的
+    i18n::apply("auto");
     applog::init(&data_dir());
     let hidden_start = std::env::args().any(|a| a == "--hidden");
     HIDDEN_START.store(hidden_start, std::sync::atomic::Ordering::Relaxed);
@@ -241,13 +269,17 @@ pub fn run() {
                 set_low_memory(&main, true);
             }
 
-            // 托盘
-            let open = MenuItem::with_id(app, "open", "打开 Kojoo Mail", true, None::<&str>)?;
-            let compose = MenuItem::with_id(app, "compose", "写邮件", true, None::<&str>)?;
-            let sync = MenuItem::with_id(app, "sync", "立即同步", true, None::<&str>)?;
+            // 托盘（文字按界面语言；改语言时 tray_texts 重设）
+            settings::load(&ctx);
+            let open = MenuItem::with_id(app, "open", "", true, None::<&str>)?;
+            let compose = MenuItem::with_id(app, "compose", "", true, None::<&str>)?;
+            let sync = MenuItem::with_id(app, "sync", "", true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
-            let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &compose, &sync, &sep, &quit])?;
+            let items = TrayItems { open, compose, sync, quit };
+            items.set_texts();
+            app.manage(items);
             let c3 = ctx.clone();
             TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().cloned().expect("icon"))
@@ -359,6 +391,7 @@ pub fn run() {
             commands::status_list,
             commands::quit,
             commands::show_main,
+            commands::ui_lang,
         ])
         .build(tauri::generate_context!());
     match r {

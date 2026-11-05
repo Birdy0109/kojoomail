@@ -138,12 +138,12 @@ fn add_column(conn: &Connection, table: &str, col: &str, def: &str) -> Result<()
 
 impl Store {
     pub fn open(dir: &Path) -> Result<Store> {
-        let denied = |e: &dyn std::fmt::Display| anyhow::anyhow!("打不开数据目录 {}：{e}。可能是没有写入权限，或文件被杀毒软件占用。", dir.display());
+        let denied = |e: &dyn std::fmt::Display| anyhow::anyhow!(tr!("打不开数据目录 {}：{e}。可能是没有写入权限，或文件被杀毒软件占用。", "Can't open the data folder {}: {e}. It may not be writable, or antivirus software may be locking the files.", dir.display()));
         std::fs::create_dir_all(dir.join("mail")).map_err(|e| denied(&e))?;
         let conn = Connection::open(dir.join("kojoomail.db")).map_err(|e| denied(&e))?;
         let ver: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).map_err(|e| denied(&e))?;
         if ver > LATEST {
-            anyhow::bail!("这份数据是更新版本的 Kojoo Mail 建的（数据版本 {ver}），请安装最新版再打开");
+            anyhow::bail!(tr!("这份数据是更新版本的 Kojoo Mail 建的（数据版本 {ver}），请安装最新版再打开", "This data was created by a newer version of Kojoo Mail (data version {ver}). Please install the latest version."));
         }
         conn.execute_batch(SCHEMA)?;
         // 早期版本（数据版本 0、1）陆续加的列：没有才加。加列失败要报出来，不然之后到处「no such column」
@@ -203,13 +203,13 @@ impl Store {
     fn run_steps(&mut self, from: i64, steps: &[Step], bak: &Path) -> Result<()> {
         for (i, step) in steps.iter().enumerate().skip((from - 1) as usize) {
             let to = i as i64 + 2;
-            let fail = |e: &dyn std::fmt::Display| anyhow::anyhow!("数据升级到版本 {to} 失败：{e}。升级前的备份在 {}，请把「设置 → 关于 → 导出诊断信息」的文件发给开发者", bak.display());
+            let fail = |e: &dyn std::fmt::Display| anyhow::anyhow!(tr!("数据升级到版本 {to} 失败：{e}。升级前的备份在 {}，请把「设置 → 关于 → 导出诊断信息」的文件发给开发者", "Upgrading the data to version {to} failed: {e}. A backup from before the upgrade is at {}. Please send the file from Settings → About → Export diagnostics to the developer.", bak.display()));
             let tx = self.conn.transaction()?;
             step(&tx).map_err(|e| fail(&e))?;
             // 关了外键自动检查，提交前手动查一遍有没有断掉的关联
             let broken: i64 = tx.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| r.get(0))?;
             if broken > 0 {
-                return Err(fail(&format!("{broken} 处关联对不上")));
+                return Err(fail(&tr!("{broken} 处关联对不上", "{broken} broken references")));
             }
             tx.execute_batch(&format!("PRAGMA user_version = {to}"))?;
             tx.commit()?;

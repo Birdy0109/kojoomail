@@ -101,14 +101,14 @@ pub async fn dial(host: &str, port: u16) -> Result<(TcpStream, bool), String> {
         if let Ok(Ok(s)) = tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(proxy.as_str())).await {
             let first = match tokio::time::timeout(Duration::from_secs(20), tunnel(s, host, port)).await {
                 Ok(Ok(s)) => return Ok((s, true)),
-                Ok(Err(e)) => format!("经代理 {proxy} 连 {host}:{port} 失败：{e}"),
-                Err(_) => return Err(format!("经代理 {proxy} 连 {host}:{port} 超时")),
+                Ok(Err(e)) => tr!("经代理 {proxy} 连 {host}:{port} 失败：{e}", "Connecting to {host}:{port} through proxy {proxy} failed: {e}"),
+                Err(_) => return Err(tr!("经代理 {proxy} 连 {host}:{port} 超时", "Connecting to {host}:{port} through proxy {proxy} timed out")),
             };
             // 代理明确拒绝（公司代理常只放行 443 端口）：直连再试一次，两个原因都报出来
             crate::applog::info(&format!("{first}，改直连"));
             return match dial_direct(host, port).await {
                 Ok(s) => Ok((s, false)),
-                Err(e) => Err(format!("{first}；改直连也失败：{e}")),
+                Err(e) => Err(tr!("{first}；改直连也失败：{e}", "{first}; a direct connection also failed: {e}")),
             };
         }
         // 代理没开：直连
@@ -120,8 +120,8 @@ pub async fn dial(host: &str, port: u16) -> Result<(TcpStream, bool), String> {
 pub async fn dial_direct(host: &str, port: u16) -> Result<TcpStream, String> {
     tokio::time::timeout(Duration::from_secs(15), TcpStream::connect((host, port)))
         .await
-        .map_err(|_| format!("连接 {host}:{port} 超时"))?
-        .map_err(|e| format!("连不上 {host}:{port}：{e}"))
+        .map_err(|_| tr!("连接 {host}:{port} 超时", "Connecting to {host}:{port} timed out"))?
+        .map_err(|e| tr!("连不上 {host}:{port}：{e}", "Can't connect to {host}:{port}: {e}"))
 }
 
 async fn tunnel(mut s: TcpStream, host: &str, port: u16) -> Result<TcpStream, String> {
@@ -131,7 +131,7 @@ async fn tunnel(mut s: TcpStream, host: &str, port: u16) -> Result<TcpStream, St
     let mut b = [0u8; 1];
     while !head.ends_with(b"\r\n\r\n") {
         if head.len() > 8192 || s.read(&mut b).await.map_err(|e| e.to_string())? == 0 {
-            return Err("代理断开了连接".into());
+            return Err(crate::i18n::t("代理断开了连接", "The proxy closed the connection").into());
         }
         head.push(b[0]);
     }
@@ -139,7 +139,7 @@ async fn tunnel(mut s: TcpStream, host: &str, port: u16) -> Result<TcpStream, St
     if line.split_whitespace().nth(1) == Some("200") {
         Ok(s)
     } else {
-        Err(format!("代理拒绝：{line}"))
+        Err(tr!("代理拒绝：{line}", "The proxy refused: {line}"))
     }
 }
 

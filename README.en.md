@@ -27,7 +27,7 @@ You switch between a personal inbox, a work account, Gmail and Outlook all day. 
 
 It is a desktop app, and your mail stays on your own computer. The AI uses your own API key and never goes through our servers.
 
-> **Interface language:** the app's interface is currently in Simplified Chinese only, which is why the screenshots below are in Chinese. The AI reads and writes in any language, and suggested replies follow the language of the incoming email.
+> **Language:** the interface is available in English and Simplified Chinese. It follows your system language, and you can switch it in Settings → General. With the English interface, AI summaries, key facts, to-dos and the daily digest are written in English; suggested replies follow the language of the incoming email.
 
 ## Features
 
@@ -39,7 +39,7 @@ Gmail and Outlook support **one-click sign-in** (you authorize in the browser; n
 
 ### AI notes: know what an email wants before you open it
 
-<img alt="AI notes" src="docs/images/feature-ai.jpg">
+<img alt="AI notes" src="docs/images/feature-ai-en.jpg">
 
 The AI reads every new email and writes a note at the top:
 
@@ -52,13 +52,13 @@ Notifications and newsletters are sorted by local rules without calling the mode
 
 ### Daily digest: one page in the morning
 
-<img alt="Daily digest" src="docs/images/feature-digest.jpg">
+<img alt="Daily digest" src="docs/images/feature-digest-en.jpg">
 
 What to reply to, what to pay and what to follow up on today, plus a short AI-written overview. Back from a trip to hundreds of unread emails? Read this page first and you'll know where to start.
 
 ### Compose: the AI drafts, you decide
 
-<img alt="Compose with AI" src="docs/images/feature-compose.jpg">
+<img alt="Compose with AI" src="docs/images/feature-compose-en.jpg">
 
 - Rewrite in a different tone (professional, friendly, concise), polish, translate, or cut it in half
 - **Fact check**: compares your reply with the key facts of the incoming email and flags any quantity, term or date you missed
@@ -67,7 +67,7 @@ What to reply to, what to pay and what to follow up on today, plus a short AI-wr
 
 ### To-dos: from your mail, back to your mail
 
-<img alt="To-dos" src="docs/images/feature-todo.jpg">
+<img alt="To-dos" src="docs/images/feature-todo-en.jpg">
 
 To-dos the AI pulls out of your emails sit next to the ones you add yourself, grouped into today, this week and later. One click takes you back to the email they came from.
 
@@ -83,7 +83,7 @@ To-dos the AI pulls out of your emails sit next to the ones you add yourself, gr
 | **Dark mode** | Follows the system or set it yourself; frosted-glass effect on Windows 11 |
 | **Keyboard** | `J` `K` to move, `E` to archive, `R` to reply, `C` to compose, `Ctrl K` to search |
 
-<img alt="Dark mode" src="docs/images/feature-dark.jpg">
+<img alt="Dark mode" src="docs/images/feature-dark-en.jpg">
 
 ### Light on resources
 

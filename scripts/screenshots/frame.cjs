@@ -1,6 +1,6 @@
 // 把 shoot.cjs 拍的界面截图排成 README 用的图：封面（浅色/深色）和带窗口边框的功能图
 //   NODE_PATH=tests/e2e/node_modules node scripts/screenshots/frame.cjs [截图目录] [输出目录]
-// 默认读 docs/images/screens/，输出到 docs/images/
+// 默认读 docs/images/screens/，输出到 docs/images/；有 docs/images/screens-en/（DEMO_LANG=en 拍的英文界面）时，英文封面和 *-en 功能图用它
 const { chromium } = require('playwright-core')
 const fs = require('fs')
 const path = require('path')
@@ -11,6 +11,9 @@ const out = process.argv[3] || path.join(root, 'docs/images')
 fs.mkdirSync(out, { recursive: true })
 const b64 = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64')
 const shot = (n) => b64(path.join(src, `${n}.png`))
+const srcEn = path.join(src, '..', 'screens-en')
+const hasEn = fs.existsSync(path.join(srcEn, 'inbox.png'))
+const shotEn = (n) => (hasEn ? b64(path.join(srcEn, `${n}.png`)) : shot(n))
 const icon = b64(path.join(root, 'design/icon/png/full-256.png'))
 const serif = 'data:font/woff2;base64,' + fs.readFileSync(path.join(root, 'src/assets/instrument-serif-italic.woff2')).toString('base64')
 
@@ -107,8 +110,8 @@ const feature = (t, img, crop) => {
   }
   await render(hero(THEMES.light, shot('inbox')), 'hero-light')
   await render(hero(THEMES.dark, shot('dark')), 'hero-dark')
-  await render(hero(THEMES.light, shot('inbox'), 'en'), 'hero-light-en')
-  await render(hero(THEMES.dark, shot('dark'), 'en'), 'hero-dark-en')
+  await render(hero(THEMES.light, shotEn('inbox'), 'en'), 'hero-light-en')
+  await render(hero(THEMES.dark, shotEn('dark'), 'en'), 'hero-dark-en')
   await page.setViewportSize({ width: 1280, height: 640 })
   await render(social(THEMES.light, shot('inbox')), 'social-preview')
   await page.setViewportSize({ width: 1600, height: 900 })
@@ -117,5 +120,12 @@ const feature = (t, img, crop) => {
   await render(feature(THEMES.light, shot('compose')), 'feature-compose')
   await render(feature(THEMES.light, shot('todo')), 'feature-todo')
   await render(feature(THEMES.dark, shot('dark')), 'feature-dark')
+  if (hasEn) {
+    await render(feature(THEMES.light, shotEn('inbox'), [600, 44, 760, 776]), 'feature-ai-en')
+    await render(feature(THEMES.light, shotEn('digest')), 'feature-digest-en')
+    await render(feature(THEMES.light, shotEn('compose')), 'feature-compose-en')
+    await render(feature(THEMES.light, shotEn('todo')), 'feature-todo-en')
+    await render(feature(THEMES.dark, shotEn('dark')), 'feature-dark-en')
+  }
   await browser.close()
 })().catch((e) => { console.error(e); process.exit(1) })

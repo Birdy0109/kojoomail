@@ -1,6 +1,13 @@
 import type { Account, Addr } from './api'
+import { EN, L } from './i18n'
 
 const pad = (n: number) => String(n).padStart(2, '0')
+const WEEK_ZH = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const WEEK_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MON_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const weekday = (d: Date) => (EN ? WEEK_EN : WEEK_ZH)[d.getDay()]
+/** 月-日（英文 Nov 4） */
+const monthDay = (d: Date) => (EN ? `${MON_EN[d.getMonth()]} ${d.getDate()}` : `${d.getMonth() + 1}-${pad(d.getDate())}`)
 
 /** 列表里的时间：今天显示时刻，昨天显示「昨天」，一周内显示星期，再早显示日期 */
 export function shortTime(ts: number) {
@@ -10,10 +17,10 @@ export function shortTime(ts: number) {
   const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
   const diff = Math.round((day(now) - day(d)) / 86400000)
   if (diff === 0) return `${pad(d.getHours())}:${pad(d.getMinutes())}`
-  if (diff === 1) return '昨天'
-  if (diff < 7 && diff > 0) return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()]
-  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}-${pad(d.getDate())}`
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  if (diff === 1) return L('昨天', 'Yesterday')
+  if (diff < 7 && diff > 0) return weekday(d)
+  if (d.getFullYear() === now.getFullYear()) return monthDay(d)
+  return EN ? `${MON_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 export function fullTime(ts: number) {
@@ -27,19 +34,20 @@ export function dayGroup(ts: number) {
   const now = new Date()
   const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
   const diff = Math.round((day(now) - day(d)) / 86400000)
-  if (diff <= 0) return '今天'
-  if (diff === 1) return '昨天'
-  if (diff < 7) return '本周'
-  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) return '本月'
-  return '更早'
+  if (diff <= 0) return L('今天', 'Today')
+  if (diff === 1) return L('昨天', 'Yesterday')
+  if (diff < 7) return L('本周', 'This week')
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) return L('本月', 'This month')
+  return L('更早', 'Earlier')
 }
 
 export function ago(ts: number) {
   const s = Date.now() / 1000 - ts
-  if (s < 60) return '刚刚'
-  if (s < 3600) return `${Math.floor(s / 60)} 分钟前`
-  if (s < 86400) return `${Math.floor(s / 3600)} 小时前`
-  return `${Math.floor(s / 86400)} 天前`
+  if (s < 60) return L('刚刚', 'Just now')
+  if (s < 3600) return L(`${Math.floor(s / 60)} 分钟前`, `${Math.floor(s / 60)} min ago`)
+  if (s < 86400) return L(`${Math.floor(s / 3600)} 小时前`, `${Math.floor(s / 3600)} h ago`)
+  const n = Math.floor(s / 86400)
+  return L(`${n} 天前`, `${n} ${n === 1 ? 'day' : 'days'} ago`)
 }
 
 export function dueLabel(ts: number | null) {
@@ -48,11 +56,11 @@ export function dueLabel(ts: number | null) {
   const now = new Date()
   const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
   const diff = Math.round((day(d) - day(now)) / 86400000)
-  if (diff < 0) return diff === -1 ? '昨天到期' : `逾期 ${-diff} 天`
-  if (diff === 0) return d.getHours() === 18 && d.getMinutes() === 0 ? '今天' : `${pad(d.getHours())}:${pad(d.getMinutes())}`
-  if (diff === 1) return '明天'
-  if (diff < 7) return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()]
-  return `${d.getMonth() + 1}-${pad(d.getDate())}`
+  if (diff < 0) return diff === -1 ? L('昨天到期', 'Due yesterday') : L(`逾期 ${-diff} 天`, `${-diff} days overdue`)
+  if (diff === 0) return d.getHours() === 18 && d.getMinutes() === 0 ? L('今天', 'Today') : `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  if (diff === 1) return L('明天', 'Tomorrow')
+  if (diff < 7) return weekday(d)
+  return monthDay(d)
 }
 
 export const size = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`)

@@ -105,8 +105,8 @@ pub fn cancel() {
 
 /// 打开浏览器登录，等回调，换令牌，返回票据和邮箱地址
 pub async fn authorize(http: &reqwest::Client, provider: &str, hint: &str) -> Result<(String, String)> {
-    let sp = spec(provider).ok_or_else(|| anyhow!("这个邮箱不支持一键登录"))?;
-    let (cid, csecret) = client(provider).ok_or_else(|| anyhow!("这个版本暂时不支持{}账号一键登录", if provider == "gmail" { "谷歌" } else { "微软" }))?;
+    let sp = spec(provider).ok_or_else(|| anyhow!("{}", crate::i18n::t("这个邮箱不支持一键登录", "This mailbox doesn't support one-click sign-in")))?;
+    let (cid, csecret) = client(provider).ok_or_else(|| if crate::i18n::en() { anyhow!("This build doesn't support one-click sign-in for {} accounts", if provider == "gmail" { "Google" } else { "Microsoft" }) } else { anyhow!("这个版本暂时不支持{}账号一键登录", if provider == "gmail" { "谷歌" } else { "微软" }) })?;
     let open = |u: &str| crate::os::open_url(u).map_err(anyhow::Error::from);
     authorize_with(http, provider, &sp, &cid, csecret.as_deref(), hint, open).await
 }
@@ -154,7 +154,7 @@ async fn authorize_with(http: &reqwest::Client, provider: &str, sp: &Spec, cid: 
     let wait = async {
         loop {
             let accepted = tokio::select! {
-                got = rx.recv() => return got.unwrap_or_else(|| Err(anyhow!("登录中断，请重试"))),
+                got = rx.recv() => return got.unwrap_or_else(|| Err(anyhow!("{}", crate::i18n::t("登录中断，请重试", "Sign-in was interrupted. Please try again.")))),
                 r = v4.accept() => r,
                 r = async { match &v6 { Some(l) => l.accept().await, None => std::future::pending().await } } => r,
             };
@@ -172,8 +172,8 @@ async fn authorize_with(http: &reqwest::Client, provider: &str, sp: &Spec, cid: 
     };
     let code = tokio::select! {
         r = wait => r,
-        _ = stop.notified() => Err(anyhow!("已取消")),
-        _ = tokio::time::sleep(Duration::from_secs(900)) => Err(anyhow!("等了 15 分钟没有完成登录，请重试")),
+        _ = stop.notified() => Err(anyhow!("{}", crate::i18n::t("已取消", "Cancelled"))),
+        _ = tokio::time::sleep(Duration::from_secs(900)) => Err(anyhow!("{}", crate::i18n::t("等了 15 分钟没有完成登录，请重试", "Sign-in wasn't completed within 15 minutes. Please try again."))),
     };
     {
         let mut f = FLOW.lock().unwrap();
@@ -198,8 +198,8 @@ async fn authorize_with(http: &reqwest::Client, provider: &str, sp: &Spec, cid: 
         form.push(("scope", sp.scope));
     }
     let t = token_call(http, sp.token_url, &form).await.map_err(|e| anyhow!("{}", e.msg))?;
-    let refresh = t.refresh.ok_or_else(|| anyhow!("没有拿到长期授权，请重新登录一次"))?;
-    let email = t.id_token.as_deref().and_then(email_from_id_token).ok_or_else(|| anyhow!("没有拿到邮箱地址，请重试"))?;
+    let refresh = t.refresh.ok_or_else(|| anyhow!("{}", crate::i18n::t("没有拿到长期授权，请重新登录一次", "Didn't get lasting access. Please sign in again.")))?;
+    let email = t.id_token.as_deref().and_then(email_from_id_token).ok_or_else(|| anyhow!("{}", crate::i18n::t("没有拿到邮箱地址，请重试", "Couldn't get the email address. Please try again.")))?;
     let ticket = format!("t{}-{}", TICKET_SEQ.fetch_add(1, Ordering::Relaxed), rand_b64(8));
     let mut p = PENDING.lock().unwrap();
     let map = p.get_or_insert_with(HashMap::new);
@@ -232,7 +232,7 @@ async fn callback(mut sock: TcpStream, state: &str) -> Option<Result<String>> {
         return None;
     }
     let mine = q.get("state").map(String::as_str) == Some(state);
-    let page = if mine && q.contains_key("code") { "已授权，可以关掉这个页面，回到 Kojoo Mail。" } else { "没有完成授权，请回到 Kojoo Mail 重试。" };
+    let page = if mine && q.contains_key("code") { crate::i18n::t("已授权，可以关掉这个页面，回到 Kojoo Mail。", "Authorized. You can close this page and go back to Kojoo Mail.") } else { crate::i18n::t("没有完成授权，请回到 Kojoo Mail 重试。", "Authorization wasn't completed. Go back to Kojoo Mail and try again.") };
     let body = format!("<!doctype html><meta charset=utf-8><title>Kojoo Mail</title><body style=\"font:15px/1.6 system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:90vh;color:#0f1c2a\"><p>{page}</p>");
     let head = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
     let _ = sock.write_all(head.as_bytes()).await;
@@ -243,8 +243,8 @@ async fn callback(mut sock: TcpStream, state: &str) -> Option<Result<String>> {
     }
     if let Some(err) = q.get("error") {
         return Some(Err(match err.as_str() {
-            "access_denied" => anyhow!("在浏览器里取消了授权"),
-            _ => anyhow!("授权失败：{}", q.get("error_description").unwrap_or(err)),
+            "access_denied" => anyhow!("{}", crate::i18n::t("在浏览器里取消了授权", "Authorization was cancelled in the browser")),
+            _ => anyhow!(tr!("授权失败：{}", "Authorization failed: {}", q.get("error_description").unwrap_or(err))),
         }));
     }
     Some(Ok(q["code"].clone()))
@@ -303,18 +303,18 @@ async fn token_call(http: &reqwest::Client, url: &str, form: &[(&str, &str)]) ->
         .timeout(Duration::from_secs(30))
         .send()
         .await
-        .map_err(|e| net(format!("连不上登录服务器：{e}")))?;
+        .map_err(|e| net(tr!("连不上登录服务器：{e}", "Can't reach the sign-in server: {e}")))?;
     let status = r.status();
-    let v: serde_json::Value = r.json().await.map_err(|e| net(format!("登录服务器返回的内容看不懂：{e}")))?;
+    let v: serde_json::Value = r.json().await.map_err(|e| net(tr!("登录服务器返回的内容看不懂：{e}", "Unexpected response from the sign-in server: {e}")))?;
     if !status.is_success() {
         let code = v["error"].as_str().unwrap_or("");
         let desc = v["error_description"].as_str().unwrap_or(code);
         // 4xx 带错误码（invalid_grant 被撤销/过期、invalid_client 配置不对、要重新同意……）都得重新登录；
         // 只有限流、服务器错误、temporarily_unavailable 算暂时的，过会儿再试
         let auth = status.is_client_error() && status.as_u16() != 429 && !code.is_empty() && code != "temporarily_unavailable";
-        return Err(TokenErr { auth, msg: if auth { format!("授权已失效，请重新登录（{desc}）") } else { format!("换取令牌失败（{status}）：{desc}") } });
+        return Err(TokenErr { auth, msg: if auth { tr!("授权已失效，请重新登录（{desc}）", "Authorization has expired. Please sign in again ({desc})") } else { tr!("换取令牌失败（{status}）：{desc}", "Couldn't get a token ({status}): {desc}") } });
     }
-    let access = v["access_token"].as_str().ok_or_else(|| net("登录服务器没有返回令牌".into()))?.to_string();
+    let access = v["access_token"].as_str().ok_or_else(|| net(crate::i18n::t("登录服务器没有返回令牌", "The sign-in server didn't return a token").into()))?.to_string();
     let secs = v["expires_in"].as_u64().unwrap_or(3600);
     Ok(Tokens {
         access,
@@ -351,8 +351,8 @@ pub async fn graph_token_from(http: &reqwest::Client, refresh: &str) -> Result<(
 }
 
 fn setup(provider: &str) -> Result<(Spec, String, Option<String>), TokenErr> {
-    let sp = spec(provider).ok_or_else(|| TokenErr { auth: true, msg: "这个邮箱不支持一键登录".into() })?;
-    let (cid, csecret) = client(provider).ok_or_else(|| TokenErr { auth: true, msg: "这个版本没有配置一键登录".into() })?;
+    let sp = spec(provider).ok_or_else(|| TokenErr { auth: true, msg: crate::i18n::t("这个邮箱不支持一键登录", "This mailbox doesn't support one-click sign-in").into() })?;
+    let (cid, csecret) = client(provider).ok_or_else(|| TokenErr { auth: true, msg: crate::i18n::t("这个版本没有配置一键登录", "One-click sign-in isn't configured in this build").into() })?;
     Ok((sp, cid, csecret))
 }
 
@@ -375,7 +375,7 @@ async fn token_for(http: &reqwest::Client, id: i64, provider: &str, graph: bool)
         }
     }
     let (sp, cid, csecret) = setup(provider)?;
-    let rt = secret::get(&secret::account_key(id)).ok_or_else(|| TokenErr { auth: true, msg: "没有找到登录授权，请重新登录".into() })?;
+    let rt = secret::get(&secret::account_key(id)).ok_or_else(|| TokenErr { auth: true, msg: crate::i18n::t("没有找到登录授权，请重新登录", "No sign-in authorization found. Please sign in again.").into() })?;
     let t = token_call(http, sp.token_url, &refresh_form(provider, &sp, &cid, csecret.as_deref(), &rt, graph)).await?;
     let key = secret::account_key(id);
     // 换令牌期间账号被删了、或者用户刚重新登录过（凭据已不是刚才那个）：别拿旧的覆盖回去
@@ -548,7 +548,7 @@ mod tests {
         for (h, p, tls) in [("smtp.gmail.com", 465, true), ("smtp.office365.com", 587, false)] {
             let c = crate::smtp::SmtpCfg { host: h.into(), port: p, tls, username: "nobody@example.com".into(), password: "bad-token".into(), oauth: true };
             let e = crate::smtp::test(&c).await.unwrap_err().to_string();
-            assert!(e.starts_with(crate::smtp::AUTH_FAIL), "{h}: {e}");
+            assert!(crate::smtp::is_auth_fail(&e), "{h}: {e}");
             println!("{h}: {e}");
         }
     }

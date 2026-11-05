@@ -1,6 +1,6 @@
 [package]
 name = "kojoomail"
-version = "0.2.2"
+version = "0.3.0"
 description = "Kojoo Mail - 多邮箱 + AI 的桌面邮件客户端"
 authors = ["Eko"]
 license = "AGPL-3.0-or-later"
@@ -41,6 +41,8 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 anyhow = "1"
 regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
 dirs = "5"
+# 读系统语言：界面「跟随系统」时用
+sys-locale = "0.3"
 
 [profile.release]
 opt-level = "s"

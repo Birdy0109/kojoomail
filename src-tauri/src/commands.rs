@@ -234,6 +234,8 @@ pub struct Boot {
     version: String,
     /// 这个版本配好了哪些一键登录（gmail / outlook）
     oauth: Vec<String>,
+    /// 当前界面语言（zh / en）：「跟随系统」由后端按系统语言定，前端照用，两边不会不一致
+    lang: &'static str,
 }
 
 #[derive(Serialize)]
@@ -259,7 +261,7 @@ fn counts(ctx: &Ctx) -> Counts {
         later: q(&format!("SELECT COUNT(*) FROM messages WHERE later_until > {t} AND moving=0")),
         drafts: q("SELECT COUNT(*) FROM drafts"),
         followups: q(&format!("SELECT COUNT(*) FROM messages m JOIN folders f ON f.id=m.folder_id WHERE {}", crate::assist::followup_where(t))),
-        bills: q("SELECT COUNT(*) FROM messages m JOIN folders f ON f.id=m.folder_id LEFT JOIN ai ON ai.msg_id=m.id WHERE m.moving=0 AND m.seen=0 AND f.role NOT IN ('trash','junk','sent','drafts') AND (ai.category='账单' OR f.name LIKE '%发票%')"),
+        bills: q("SELECT COUNT(*) FROM messages m JOIN folders f ON f.id=m.folder_id LEFT JOIN ai ON ai.msg_id=m.id WHERE m.moving=0 AND m.seen=0 AND f.role NOT IN ('trash','junk','sent','drafts') AND (ai.category='账单' OR f.name LIKE '%发票%' OR f.name LIKE '%invoice%')"),
     }
 }
 
@@ -276,6 +278,7 @@ pub async fn bootstrap(ctx: State<'_, Arc<Ctx>>) -> Res<Boot> {
         counts: counts(&ctx),
         version: env!("CARGO_PKG_VERSION").into(),
         oauth: ["gmail", "outlook"].iter().filter(|p| oauth::available(p)).map(|p| p.to_string()).collect(),
+        lang: crate::i18n::code(),
     })
 }
 
@@ -408,7 +411,7 @@ fn list_base(q: &ListQuery) -> (String, Vec<rusqlite::types::Value>) {
             "later" => wh.push(format!("m.later_until > {t}")),
             // AI 认的账单，加上用户自己建的「发票」文件夹里的
             "followup" => wh.push(crate::assist::followup_where(t)),
-            "bills" => wh.push("f.role NOT IN ('trash','junk','sent','drafts') AND (ai.category = '账单' OR f.name LIKE '%发票%')".into()),
+            "bills" => wh.push("f.role NOT IN ('trash','junk','sent','drafts') AND (ai.category = '账单' OR f.name LIKE '%发票%' OR f.name LIKE '%invoice%')".into()),
             "sent" => wh.push("f.role = 'sent'".into()),
             "folder" => {
                 wh.push("m.folder_id = ?".into());
@@ -497,7 +500,7 @@ pub async fn get_message(ctx: State<'_, Arc<Ctx>>, id: i64) -> Res<MsgFull> {
         let st = ctx.store.lock().unwrap();
         st.conn
             .query_row("SELECT m.has_body, m.account_id, f.path, m.uid FROM messages m JOIN folders f ON f.id=m.folder_id WHERE m.id=?", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
-            .map_err(|_| "这封邮件已经不在了".to_string())?
+            .map_err(|_| crate::i18n::t("这封邮件已经不在了", "This email no longer exists").to_string())?
     };
     if !has_body {
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -505,7 +508,7 @@ pub async fn get_message(ctx: State<'_, Arc<Ctx>>, id: i64) -> Res<MsgFull> {
         match tokio::time::timeout(Duration::from_secs(45), rx).await {
             Ok(Ok(Ok(()))) => {}
             Ok(Ok(Err(m))) => return Err(m),
-            _ => return Err("下载邮件超时，请检查网络后重试".into()),
+            _ => return Err(crate::i18n::t("下载邮件超时，请检查网络后重试", "Downloading the email timed out. Check your connection and try again.").into()),
         }
     }
     let st = ctx.store.lock().unwrap();
@@ -677,9 +680,9 @@ pub async fn snooze(ctx: State<'_, Arc<Ctx>>, ids: Vec<i64>, until: Option<i64>)
 pub async fn move_to(ctx: State<'_, Arc<Ctx>>, ids: Vec<i64>, target: String) -> Res<u64> {
     let rows = locate(&ctx, &ids);
     if rows.is_empty() {
-        return Err("邮件还在同步中，稍后再试".into());
+        return Err(crate::i18n::t("邮件还在同步中，稍后再试", "Still syncing. Try again in a moment.").into());
     }
-    let what = match target.as_str() { "archive" => "归档", "trash" => "已删除", "junk" => "垃圾邮件", "inbox" => "收件箱", _ => "目标文件夹" };
+    let what = match target.as_str() { "archive" => crate::i18n::t("归档", "Archive"), "trash" => crate::i18n::t("已删除", "Trash"), "junk" => crate::i18n::t("垃圾邮件", "Junk"), "inbox" => crate::i18n::t("收件箱", "Inbox"), _ => crate::i18n::t("目标文件夹", "target folder") };
     // (账号, 原路径, 目标路径, 目标文件夹 id, [(邮件 id, uid)])
     let mut plan: Vec<(i64, String, String, i64, Vec<(i64, u32)>)> = vec![];
     let mut moving = vec![];
@@ -706,7 +709,7 @@ pub async fn move_to(ctx: State<'_, Arc<Ctx>>, ids: Vec<i64>, target: String) ->
                     let fid: i64 = st.conn.query_row("SELECT id FROM folders WHERE account_id=? AND path='Archive'", [acc], |r| r.get(0)).map_err(e)?;
                     (fid, "Archive".to_string())
                 }
-                None => return Err(format!("这个邮箱没有「{what}」文件夹")),
+                None => return Err(tr!("这个邮箱没有「{what}」文件夹", "This mailbox has no \"{what}\" folder")),
             };
             if dest == path {
                 continue; // 已经在目标文件夹里
@@ -715,7 +718,7 @@ pub async fn move_to(ctx: State<'_, Arc<Ctx>>, ids: Vec<i64>, target: String) ->
             plan.push((acc, path, dest, dest_id, items));
         }
         if plan.is_empty() {
-            return Err(format!("邮件已经在「{what}」里了"));
+            return Err(tr!("邮件已经在「{what}」里了", "Already in \"{what}\""));
         }
         for id in &moving {
             st.conn.execute("UPDATE messages SET moving=1 WHERE id=?", [id]).map_err(e)?;
@@ -799,7 +802,7 @@ pub async fn empty_folder(ctx: State<'_, Arc<Ctx>>, folder_id: i64) -> Res<u64> 
         let (acc, path, role): (i64, String, String) =
             st.conn.query_row("SELECT account_id, path, role FROM folders WHERE id=?", [folder_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).map_err(e)?;
         if role != "trash" && role != "junk" {
-            return Err("只能清空「已删除」和「垃圾邮件」".into());
+            return Err(crate::i18n::t("只能清空「已删除」和「垃圾邮件」", "Only Trash and Junk can be emptied").into());
         }
         // moving=1：刚点了移走、还在撤销窗口里的，不算在清空范围（否则撤销/移回的信会被一起删掉）
         let mut q = st.conn.prepare("SELECT id FROM messages WHERE folder_id=? AND uid>0 AND moving=0").map_err(e)?;
@@ -861,14 +864,14 @@ async fn test_inner(a: &AccountIn, auth: Auth, graph: Option<(&reqwest::Client, 
         Err(err) => {
             return Err(if err.auth {
                 if matches!(auth, Auth::Bearer(_)) && a.provider == "outlook" {
-                    format!("Outlook 拒绝了收信：请在 Outlook 网页版「设置 → 邮件 → 转发和 IMAP」打开「允许设备和应用使用 IMAP」并保存，过一两分钟再登录。（{}）", err.msg)
+                    tr!("Outlook 拒绝了收信：请在 Outlook 网页版「设置 → 邮件 → 转发和 IMAP」打开「允许设备和应用使用 IMAP」并保存，过一两分钟再登录。（{}）", "Outlook refused the connection: in Outlook on the web, go to Settings → Mail → Forwarding and IMAP, turn on \"Let devices and apps use IMAP\", save, and sign in again after a minute or two. ({})", err.msg)
                 } else if matches!(auth, Auth::Bearer(_)) {
-                    format!("收信服务器拒绝了授权，请确认邮箱已开启 IMAP。（{}）", err.msg)
+                    tr!("收信服务器拒绝了授权，请确认邮箱已开启 IMAP。（{}）", "The mail server refused the authorization. Make sure IMAP is turned on for this mailbox. ({})", err.msg)
                 } else {
-                    format!("收信服务器拒绝了登录，请检查邮箱和授权码。（{}）", err.msg)
+                    tr!("收信服务器拒绝了登录，请检查邮箱和授权码。（{}）", "The mail server refused the sign-in. Check the address and the password or app password. ({})", err.msg)
                 }
             } else {
-                format!("连不上收信服务器：{}", err.msg)
+                tr!("连不上收信服务器：{}", "Can't reach the incoming mail server: {}", err.msg)
             })
         }
     }
@@ -876,7 +879,7 @@ async fn test_inner(a: &AccountIn, auth: Auth, graph: Option<(&reqwest::Client, 
         return oauth::graph_token_from(http, refresh)
             .await
             .map(Some)
-            .map_err(|x| if x.auth { format!("没有拿到 Outlook 发信权限，请重新登录并同意「代你发送邮件」。（{}）", x.msg) } else { x.msg });
+            .map_err(|x| if x.auth { tr!("没有拿到 Outlook 发信权限，请重新登录并同意「代你发送邮件」。（{}）", "Kojoo Mail doesn't have permission to send from Outlook. Sign in again and allow \"Send mail as you\". ({})", x.msg) } else { x.msg });
     }
     let (password, oauth) = match auth {
         Auth::Password(p) => (p, false),
@@ -943,7 +946,7 @@ async fn credential(ctx: &Ctx, id: i64, auth: &str, provider: &str) -> Res<Auth>
     if auth == "oauth" {
         return oauth::access_token(&ctx.http, id, provider).await.map(Auth::Bearer).map_err(|x| x.msg);
     }
-    secret::get(&secret::account_key(id)).map(Auth::Password).ok_or_else(|| "没有找到这个账号的密码".to_string())
+    secret::get(&secret::account_key(id)).map(Auth::Password).ok_or_else(|| crate::i18n::t("没有找到这个账号的密码", "No password found for this account").to_string())
 }
 
 #[tauri::command]
@@ -957,21 +960,21 @@ pub async fn add_account(ctx: State<'_, Arc<Ctx>>, input: AccountIn) -> Res<i64>
 async fn add_account_inner(ctx: State<'_, Arc<Ctx>>, input: AccountIn) -> Res<i64> {
     let email = input.email.trim().to_lowercase();
     if !email.contains('@') {
-        return Err("邮箱地址不对".into());
+        return Err(crate::i18n::t("邮箱地址不对", "That email address isn't valid").into());
     }
     {
         let st = ctx.store.lock().unwrap();
         let exists: Option<i64> = st.conn.query_row("SELECT id FROM accounts WHERE email=?", [&email], |r| r.get(0)).optional().map_err(e)?;
         if exists.is_some() {
-            return Err("这个邮箱已经添加过了".into());
+            return Err(crate::i18n::t("这个邮箱已经添加过了", "This mailbox has already been added").into());
         }
     }
     let mut input = input;
     let grant = match input.oauth_ticket.as_deref() {
         Some(t) => {
-            let g = oauth::peek(t).ok_or("登录已过期，请重新登录")?;
+            let g = oauth::peek(t).ok_or(crate::i18n::t("登录已过期，请重新登录", "The sign-in has expired. Please sign in again."))?;
             if g.provider != input.provider {
-                return Err("登录的账号类型不对，请重新登录".into());
+                return Err(crate::i18n::t("登录的账号类型不对，请重新登录", "Wrong account type. Please sign in again.").into());
             }
             Some(g)
         }
@@ -985,7 +988,7 @@ async fn add_account_inner(ctx: State<'_, Arc<Ctx>>, input: AccountIn) -> Res<i6
     if grant.is_some() {
         let st = ctx.store.lock().unwrap();
         if st.conn.query_row("SELECT id FROM accounts WHERE email=?", [&email], |r| r.get::<_, i64>(0)).optional().map_err(e)?.is_some() {
-            return Err(format!("{email} 已经添加过了"));
+            return Err(tr!("{email} 已经添加过了", "{email} has already been added"));
         }
     }
     input.email = email.clone();
@@ -1047,7 +1050,7 @@ pub async fn update_account(ctx: State<'_, Arc<Ctx>>, id: i64, patch: AccountPat
     if let Some(p) = patch.password.as_deref().filter(|p| !p.is_empty()) {
         let auth: String = ctx.store.lock().unwrap().conn.query_row("SELECT auth FROM accounts WHERE id=?", [id], |r| r.get(0)).map_err(e)?;
         if auth == "oauth" {
-            return Err("这个账号是一键登录的，请用「重新登录」".into());
+            return Err(crate::i18n::t("这个账号是一键登录的，请用「重新登录」", "This account uses one-click sign-in. Use \"Sign in again\" instead.").into());
         }
         // 先验证新密码能登录，再保存
         let (host, port, user): (String, u16, String) = ctx
@@ -1061,7 +1064,7 @@ pub async fn update_account(ctx: State<'_, Arc<Ctx>>, id: i64, patch: AccountPat
             Ok(mut s) => {
                 let _ = s.logout().await;
             }
-            Err(x) => return Err(if x.auth { "新的密码或授权码还是不对".into() } else { format!("连不上服务器：{}", x.msg) }),
+            Err(x) => return Err(if x.auth { crate::i18n::t("新的密码或授权码还是不对", "The new password or app password still doesn't work").into() } else { tr!("连不上服务器：{}", "Can't reach the server: {}", x.msg) }),
         }
         secret::set(&secret::account_key(id), p).map_err(e)?;
         secret::bump_cred(id);
@@ -1070,10 +1073,10 @@ pub async fn update_account(ctx: State<'_, Arc<Ctx>>, id: i64, patch: AccountPat
         }
     }
     if let Some(t) = patch.oauth_ticket.as_deref() {
-        let g = oauth::take(t).ok_or("登录已过期，请重新登录")?;
+        let g = oauth::take(t).ok_or(crate::i18n::t("登录已过期，请重新登录", "The sign-in has expired. Please sign in again."))?;
         let (email, provider): (String, String) = ctx.store.lock().unwrap().conn.query_row("SELECT email, provider FROM accounts WHERE id=?", [id], |r| Ok((r.get(0)?, r.get(1)?))).map_err(e)?;
         if g.email != email || g.provider != provider {
-            return Err(format!("登录的是 {}，不是 {email}，请换成这个账号重新登录", g.email));
+            return Err(tr!("登录的是 {}，不是 {email}，请换成这个账号重新登录", "You signed in as {}, not {email}. Please sign in with that account.", g.email));
         }
         secret::set(&secret::account_key(id), &g.refresh).map_err(e)?;
         ctx.store.lock().unwrap().conn.execute("UPDATE accounts SET auth='oauth' WHERE id=?", [id]).map_err(e)?;
@@ -1106,7 +1109,7 @@ pub async fn update_account(ctx: State<'_, Arc<Ctx>>, id: i64, patch: AccountPat
     }
     if let Some(v) = patch.ai_level {
         if v != "full" && v != "classify" {
-            return Err("AI 处理方式不对".into());
+            return Err(crate::i18n::t("AI 处理方式不对", "Invalid AI mode").into());
         }
         st.conn.execute("UPDATE accounts SET ai_level=? WHERE id=?", params![v, id]).map_err(e)?;
     }
@@ -1179,10 +1182,10 @@ pub async fn precheck_send(ctx: State<'_, Arc<Ctx>>, d: DraftIn) -> Res<()> {
         .unwrap()
         .conn
         .query_row("SELECT provider, auth FROM accounts WHERE id=?", [d.account_id], |r| Ok((r.get(0)?, r.get(1)?)))
-        .map_err(|_| "发件账号不存在".to_string())?;
+        .map_err(|_| crate::i18n::t("发件账号不存在", "The sending account doesn't exist").to_string())?;
     let mut total: u64 = 0;
     for p in &d.attachments {
-        total += std::fs::metadata(p).map_err(|x| format!("读取附件失败：{p}：{x}"))?.len();
+        total += std::fs::metadata(p).map_err(|x| tr!("读取附件失败：{p}：{x}", "Couldn't read attachment {p}: {x}"))?.len();
     }
     if let (Some(rid), "forward") = (d.reply_msg, d.mode.as_str()) {
         let path = ctx.store.lock().unwrap().eml_path(rid);
@@ -1191,11 +1194,11 @@ pub async fn precheck_send(ctx: State<'_, Arc<Ctx>>, d: DraftIn) -> Res<()> {
         }
     }
     if total > 25 * 1024 * 1024 {
-        return Err("附件加起来超过 25 MB，多数邮箱会拒收，请分开发或改用下载链接".into());
+        return Err(crate::i18n::t("附件加起来超过 25 MB，多数邮箱会拒收，请分开发或改用下载链接", "Attachments add up to more than 25 MB, which most mail servers reject. Send them separately or share a download link.").into());
     }
     // Outlook 一键登录走 Graph：附件先 base64 进 MIME，整封再 base64 一次，请求不能超过 4 MB，原始附件约 2 MB 封顶
     if provider == "outlook" && auth_kind == "oauth" && total * 16 / 9 > 4 * 1024 * 1024 - 128 * 1024 {
-        return Err("Outlook 一次最多发约 2 MB 的附件，这封超了，请减少附件或改用下载链接".into());
+        return Err(crate::i18n::t("Outlook 一次最多发约 2 MB 的附件，这封超了，请减少附件或改用下载链接", "Outlook can send only about 2 MB of attachments at a time. Remove some or share a download link.").into());
     }
     Ok(())
 }
@@ -1209,7 +1212,7 @@ async fn send_mail_inner(ctx: State<'_, Arc<Ctx>>, d: DraftIn) -> Res<()> {
         .query_row("SELECT email, display_name, username, smtp_host, smtp_port, smtp_tls, save_sent, provider, auth FROM accounts WHERE id=?", [d.account_id], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, i64>(4)? as u16, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?))
         })
-        .map_err(|_| "发件账号不存在".to_string())?;
+        .map_err(|_| crate::i18n::t("发件账号不存在", "The sending account doesn't exist").to_string())?;
     let (in_reply_to, references) = match d.reply_msg {
         Some(rid) if d.mode != "forward" => ctx
             .store
@@ -1224,12 +1227,12 @@ async fn send_mail_inner(ctx: State<'_, Arc<Ctx>>, d: DraftIn) -> Res<()> {
     let mut attachments = vec![];
     let mut total = 0usize;
     for p in &d.attachments {
-        let data = std::fs::read(p).map_err(|x| format!("读取附件失败：{p}：{x}"))?;
+        let data = std::fs::read(p).map_err(|x| tr!("读取附件失败：{p}：{x}", "Couldn't read attachment {p}: {x}"))?;
         total += data.len();
         if total > 25 * 1024 * 1024 {
-            return Err("附件加起来超过 25 MB，多数邮箱会拒收，请分开发或改用下载链接".into());
+            return Err(crate::i18n::t("附件加起来超过 25 MB，多数邮箱会拒收，请分开发或改用下载链接", "Attachments add up to more than 25 MB, which most mail servers reject. Send them separately or share a download link.").into());
         }
-        let name = std::path::Path::new(p).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "附件".into());
+        let name = std::path::Path::new(p).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| crate::i18n::t("附件", "attachment").into());
         attachments.push(smtp::OutAttachment { mime: guess_mime(&name).into(), name, data });
     }
     // 转发时带上原邮件的附件
@@ -1273,7 +1276,7 @@ async fn send_mail_inner(ctx: State<'_, Arc<Ctx>>, d: DraftIn) -> Res<()> {
     let raw = smtp::build(&out, &domain, graph_token.is_some()).map_err(e)?;
     if let Some(token) = graph_token {
         match graph::send(&ctx.http, &token, &raw).await {
-            Err(x) if x.to_string().starts_with(graph::AUTH_FAIL) => {
+            Err(x) if graph::is_auth_fail(&x.to_string()) => {
                 oauth::forget(d.account_id);
                 let token = oauth::graph_token(&ctx.http, d.account_id).await.map_err(|x| x.msg)?;
                 graph::send(&ctx.http, &token, &raw).await.map_err(e)?;
@@ -1288,7 +1291,7 @@ async fn send_mail_inner(ctx: State<'_, Arc<Ctx>>, d: DraftIn) -> Res<()> {
             };
             let mut cfg = smtp::SmtpCfg { host, port, tls, username: user, password: pass, oauth };
             match smtp::send(&cfg, &out, &raw).await {
-                Err(x) if oauth && x.to_string().starts_with(smtp::AUTH_FAIL) => {
+                Err(x) if oauth && smtp::is_auth_fail(&x.to_string()) => {
                     oauth::forget(d.account_id);
                     cfg.password = match credential(&ctx, d.account_id, &auth_kind, &provider).await? {
                         Auth::Password(p) | Auth::Bearer(p) => p,
@@ -1299,7 +1302,7 @@ async fn send_mail_inner(ctx: State<'_, Arc<Ctx>>, d: DraftIn) -> Res<()> {
             }
         }
         .await;
-        sent.map_err(|x| if outlook_oauth { format!("{x}（Outlook 发信要重新登录一次：设置 → 账号 → 重新登录，并同意「代你发送邮件」）") } else { x })?;
+        sent.map_err(|x| if outlook_oauth { tr!("{x}（Outlook 发信要重新登录一次：设置 → 账号 → 重新登录，并同意「代你发送邮件」）", "{x} (Sign in to Outlook again to send: Settings → Accounts → Sign in again, and allow \"Send mail as you\".)") } else { x })?;
     }
     // Gmail 和 Outlook 会自动存「已发送」，其他邮箱要自己存一份
     if save_sent && provider != "gmail" && provider != "outlook" {
@@ -1423,8 +1426,8 @@ pub async fn contacts(ctx: State<'_, Arc<Ctx>>, q: String) -> Res<Vec<Addr>> {
 #[tauri::command]
 pub async fn save_attachment(ctx: State<'_, Arc<Ctx>>, msg_id: i64, idx: usize) -> Res<String> {
     let path = ctx.store.lock().unwrap().eml_path(msg_id);
-    let raw = std::fs::read(&path).map_err(|_| "邮件原文还没下载".to_string())?;
-    let (name, data) = mime::attachment_bytes(&raw, idx).ok_or("找不到这个附件")?;
+    let raw = std::fs::read(&path).map_err(|_| crate::i18n::t("邮件原文还没下载", "The original email hasn't been downloaded yet").to_string())?;
+    let (name, data) = mime::attachment_bytes(&raw, idx).ok_or(crate::i18n::t("找不到这个附件", "Attachment not found"))?;
     let safe: String = name.chars().map(|c| if r#"\/:*?"<>|"#.contains(c) || c.is_control() { '_' } else { c }).collect();
     let p = save_to_downloads(&safe, &data)?;
     mark_from_internet(std::path::Path::new(&p));
@@ -1445,8 +1448,8 @@ pub async fn print_html(html: String) -> Res<()> {
 #[tauri::command]
 pub async fn open_attachment(ctx: State<'_, Arc<Ctx>>, msg_id: i64, idx: usize) -> Res<()> {
     let path = ctx.store.lock().unwrap().eml_path(msg_id);
-    let raw = std::fs::read(&path).map_err(|_| "邮件原文还没下载".to_string())?;
-    let (name, data) = mime::attachment_bytes(&raw, idx).ok_or("找不到这个附件")?;
+    let raw = std::fs::read(&path).map_err(|_| crate::i18n::t("邮件原文还没下载", "The original email hasn't been downloaded yet").to_string())?;
+    let (name, data) = mime::attachment_bytes(&raw, idx).ok_or(crate::i18n::t("找不到这个附件", "Attachment not found"))?;
     let safe: String = name.chars().map(|c| if r#"\/:*?"<>|"#.contains(c) || c.is_control() { '_' } else { c }).collect();
     let safe = safe.trim().trim_end_matches(['.', ' ']).to_string();
     let ext = std::path::Path::new(&safe).extension().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_default();
@@ -1457,7 +1460,7 @@ pub async fn open_attachment(ctx: State<'_, Arc<Ctx>>, msg_id: i64, idx: usize) 
         "py", "pyw", "pyc", "rb", "pl", "sh", "htm", "html", "xhtml", "mht", "mhtml", "svg", "xml", "xsl", "website", "theme", "themepack", "desktopthemepack", "ins", "isp", "crt", "cer", "der",
     ];
     if ext.is_empty() || RISKY.contains(&ext.as_str()) {
-        return Err(format!("「{safe}」这类文件可能是程序或脚本，不直接打开。确实需要的话先保存，确认来源可信再自己打开"));
+        return Err(tr!("「{safe}」这类文件可能是程序或脚本，不直接打开。确实需要的话先保存，确认来源可信再自己打开", "\"{safe}\" may be a program or script, so it won't be opened directly. If you need it, save it first and open it yourself once you trust the source."));
     }
     // 每个附件单独一个目录：同名附件不会互相覆盖；已经解出来的（可能正被 Word/Excel 占着）直接打开
     let dir = std::env::temp_dir().join("KojooMail").join(msg_id.to_string()).join(idx.to_string());
@@ -1500,14 +1503,14 @@ fn ai_host(s: &Settings) -> String {
 #[tauri::command]
 pub async fn open_url(url: String) -> Res<()> {
     // 严格解析再重新序列化：空格、引号等都会被百分号编码，交给系统的只会是一个规范的网址
-    let parsed = url::Url::parse(url.trim()).map_err(|_| "链接格式不对".to_string())?;
+    let parsed = url::Url::parse(url.trim()).map_err(|_| crate::i18n::t("链接格式不对", "Invalid link").to_string())?;
     let ok = match parsed.scheme() {
         "http" | "https" => parsed.host_str().is_some_and(|h| !h.is_empty()),
         "mailto" => true,
         _ => false,
     };
     if !ok {
-        return Err("只能打开网页和邮件链接".into());
+        return Err(crate::i18n::t("只能打开网页和邮件链接", "Only web and email links can be opened").into());
     }
     // 系统打开链接可能要等一会儿（启动浏览器），别占着异步线程
     let u = parsed.to_string();
@@ -1560,7 +1563,7 @@ pub async fn todo_set(ctx: State<'_, Arc<Ctx>>, id: i64, done: Option<bool>, tex
 pub async fn todo_add(ctx: State<'_, Arc<Ctx>>, text: String, due: Option<i64>, msg_id: Option<i64>) -> Res<i64> {
     let t = text.trim();
     if t.is_empty() {
-        return Err("待办内容不能为空".into());
+        return Err(crate::i18n::t("待办内容不能为空", "The to-do can't be empty").into());
     }
     let st = ctx.store.lock().unwrap();
     let (acc, subj, from): (Option<i64>, String, String) = match msg_id {
@@ -1594,13 +1597,13 @@ pub fn ai_allowed_for(ctx: &Ctx, msg_id: i64) -> Res<()> {
         .conn
         .query_row("SELECT a.ai_allowed FROM messages m JOIN accounts a ON a.id = m.account_id WHERE m.id=?", [msg_id], |r| r.get(0))
         .unwrap_or(false);
-    if ok { Ok(()) } else { Err("这个账号设成了不用 AI，邮件内容不会发给模型（可在设置 → 账号里改）".into()) }
+    if ok { Ok(()) } else { Err(crate::i18n::t("这个账号设成了不用 AI，邮件内容不会发给模型（可在设置 → 账号里改）", "AI is turned off for this account, so its mail is never sent to a model (change this in Settings → Accounts).").into()) }
 }
 
 #[tauri::command]
 pub async fn ai_analyze(ctx: State<'_, Arc<Ctx>>, id: i64) -> Res<()> {
     if !ai::configured(&ctx) {
-        return Err("还没设置 AI：去「设置 → AI 与模型」填上接口地址和密钥".into());
+        return Err(crate::i18n::t("还没设置 AI：去「设置 → AI 与模型」填上接口地址和密钥", "AI isn't set up yet: add an endpoint and key in Settings → AI & Models").into());
     }
     ai_allowed_for(&ctx, id)?;
     ctx.ai_tx.send(ai::Job::Force(id)).map_err(e)?;
@@ -1610,7 +1613,7 @@ pub async fn ai_analyze(ctx: State<'_, Arc<Ctx>>, id: i64) -> Res<()> {
 #[tauri::command]
 pub async fn ai_draft(ctx: State<'_, Arc<Ctx>>, id: i64, tone: String, lang: String, hint: String) -> Res<String> {
     if !ai::configured(&ctx) {
-        return Err("还没设置 AI".into());
+        return Err(crate::i18n::t("还没设置 AI", "AI isn't set up yet").into());
     }
     ai_allowed_for(&ctx, id)?;
     let (subject, from, body): (String, String, String) = ctx
@@ -1641,10 +1644,10 @@ pub async fn ai_draft(ctx: State<'_, Arc<Ctx>>, id: i64, tone: String, lang: Str
 #[tauri::command]
 pub async fn ai_rewrite(ctx: State<'_, Arc<Ctx>>, text: String, op: String, arg: String) -> Res<String> {
     if !ai::configured(&ctx) {
-        return Err("还没设置 AI".into());
+        return Err(crate::i18n::t("还没设置 AI", "AI isn't set up yet").into());
     }
     if text.trim().is_empty() {
-        return Err("先写点内容".into());
+        return Err(crate::i18n::t("先写点内容", "Write something first").into());
     }
     let s = settings::load(&ctx);
     let task = match op.as_str() {
@@ -1652,7 +1655,7 @@ pub async fn ai_rewrite(ctx: State<'_, Arc<Ctx>>, text: String, op: String, arg:
         "shorten" => "把这封邮件缩短到原来一半左右，保留关键信息".to_string(),
         "translate" => format!("把这封邮件翻译成{}，保持格式", if arg.is_empty() { "英文" } else { &arg }),
         "tone" => format!("把这封邮件改成{}的语气", match arg.as_str() { "friendly" => "友好亲切", "brief" => "简洁直接", _ => "专业得体" }),
-        _ => return Err("不支持的操作".into()),
+        _ => return Err(crate::i18n::t("不支持的操作", "Unsupported action").into()),
     };
     let system = format!("你是邮件写作助手。{task}。<draft> 里是用户自己写的草稿。只输出改好的正文，不要解释。保留 Markdown 格式和 [方括号占位]。");
     ai::chat_text(&ctx, &[s.ai_model.clone(), s.ai_model_backup.clone()], &system, &format!("<draft>\n{text}\n</draft>"), 2000).await.map_err(e)
@@ -1661,14 +1664,24 @@ pub async fn ai_rewrite(ctx: State<'_, Arc<Ctx>>, text: String, op: String, arg:
 // ---------------- 设置 ----------------
 
 #[tauri::command]
+pub async fn ui_lang() -> Res<String> {
+    Ok(crate::i18n::code().into())
+}
+
+#[tauri::command]
 pub async fn save_settings(app: tauri::AppHandle, ctx: State<'_, Arc<Ctx>>, s: Settings) -> Res<Settings> {
     let old = settings::load(&ctx);
     settings::save(&ctx, &s).map_err(e)?;
+    if old.language != s.language {
+        if let Some(items) = tauri::Manager::try_state::<crate::TrayItems>(&app) {
+            items.set_texts();
+        }
+    }
     if old.autostart != s.autostart {
         use tauri_plugin_autostart::ManagerExt;
         let al = app.autolaunch();
         let r = if s.autostart { al.enable() } else { al.disable() };
-        r.map_err(|x| format!("开机启动设置失败：{x}"))?;
+        r.map_err(|x| format!("{}{x}", crate::i18n::t("开机启动设置失败：", "Couldn't change start-at-login: ")))?;
     }
     Ok(settings::load(&ctx))
 }
@@ -1696,12 +1709,12 @@ pub struct AiTest {
 pub async fn ai_test(ctx: State<'_, Arc<Ctx>>) -> Res<AiTest> {
     let s = settings::load(&ctx);
     if s.ai_base.trim().is_empty() {
-        return Err("还没选模型服务".into());
+        return Err(crate::i18n::t("还没选模型服务", "No AI provider selected yet").into());
     }
     if s.ai_model.trim().is_empty() {
-        return Err("还没填「日常分析」用的模型".into());
+        return Err(crate::i18n::t("还没填「日常分析」用的模型", "No model set for everyday analysis yet").into());
     }
-    secret::get(secret::AI_KEY).ok_or("还没填密钥")?;
+    secret::get(secret::AI_KEY).ok_or(crate::i18n::t("还没填密钥", "No API key set yet"))?;
     let t0 = std::time::Instant::now();
     // 只看接口是否接受（推理模型 token 给少了可能回空内容，也算通）
     let r = ai::chat(&ctx, &s.ai_model, "Reply with OK.", "ping", 16, false).await.map_err(e);
@@ -1758,7 +1771,7 @@ pub async fn export_diagnostics(ctx: State<'_, Arc<Ctx>>) -> Res<String> {
     // 邮箱地址只留前两个字符
     let re = regex::Regex::new(r"([A-Za-z0-9._%+-]{1,2})[A-Za-z0-9._%+-]*@").unwrap();
     let out = re.replace_all(&out, "$1***@").into_owned();
-    save_to_downloads(&format!("KojooMail-诊断-{}.txt", chrono::Local::now().format("%Y%m%d-%H%M%S")), out.as_bytes())
+    save_to_downloads(&format!("KojooMail-{}-{}.txt", crate::i18n::t("诊断", "diagnostics"), chrono::Local::now().format("%Y%m%d-%H%M%S")), out.as_bytes())
 }
 
 #[tauri::command]

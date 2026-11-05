@@ -102,11 +102,11 @@ fn rollback_move(ctx: &Ctx, account_id: i64, ids: &[i64]) {
 fn give_up(ctx: &Ctx, account_id: i64, op: Op) {
     match op {
         Op::Move { ids, .. } => {
-            log_line(ctx, account_id, "移动邮件多次失败，已放回原文件夹".into());
+            log_line(ctx, account_id, crate::i18n::t("移动邮件多次失败，已放回原文件夹", "Moving emails failed several times; they're back in their original folder").into());
             rollback_move(ctx, account_id, &ids);
         }
-        Op::Append { role, .. } => log_line(ctx, account_id, format!("保存到「{role}」文件夹失败")),
-        _ => log_line(ctx, account_id, "有一个操作多次失败，已放弃".into()),
+        Op::Append { role, .. } => log_line(ctx, account_id, tr!("保存到「{role}」文件夹失败", "Couldn't save to the \"{role}\" folder")),
+        _ => log_line(ctx, account_id, crate::i18n::t("有一个操作多次失败，已放弃", "An action failed several times and was dropped").into()),
     }
 }
 
@@ -182,15 +182,15 @@ impl async_imap::Authenticator for XOAuth2 {
 pub async fn connect(host: &str, port: u16, user: &str, auth: &Auth) -> Result<Session, ConnErr> {
     let net = |m: String| ConnErr { auth: false, msg: m };
     let (tcp, _) = crate::net::dial(host, port).await.map_err(net)?;
-    let cx = native_tls::TlsConnector::new().map_err(|e| net(format!("TLS 初始化失败：{e}")))?;
+    let cx = native_tls::TlsConnector::new().map_err(|e| net(tr!("TLS 初始化失败：{e}", "TLS setup failed: {e}")))?;
     let tls = tokio::time::timeout(Duration::from_secs(15), tokio_native_tls::TlsConnector::from(cx).connect(host, tcp))
         .await
-        .map_err(|_| net("TLS 握手超时".into()))?
-        .map_err(|e| net(format!("TLS 握手失败：{e}")))?;
+        .map_err(|_| net(crate::i18n::t("TLS 握手超时", "TLS handshake timed out").into()))?
+        .map_err(|e| net(tr!("TLS 握手失败：{e}", "TLS handshake failed: {e}")))?;
     let mut client = async_imap::Client::new(tls);
     match tokio::time::timeout(Duration::from_secs(15), client.read_response()).await {
         Ok(Some(Ok(_))) => {}
-        _ => return Err(net("服务器没有响应".into())),
+        _ => return Err(net(crate::i18n::t("服务器没有响应", "The server didn't respond").into())),
     }
     let login = async {
         match auth {
@@ -199,11 +199,11 @@ pub async fn connect(host: &str, port: u16, user: &str, auth: &Auth) -> Result<S
         }
     };
     let mut s = match tokio::time::timeout(Duration::from_secs(20), login).await {
-        Err(_) => return Err(net("登录超时".into())),
+        Err(_) => return Err(net(crate::i18n::t("登录超时", "Sign-in timed out").into())),
         Ok(Err((e, _))) => {
             let m = e.to_string();
             let auth = matches!(e, async_imap::error::Error::No(_) | async_imap::error::Error::Bad(_));
-            return Err(ConnErr { auth, msg: if auth { format!("服务器拒绝了登录：{m}") } else { m } });
+            return Err(ConnErr { auth, msg: if auth { tr!("服务器拒绝了登录：{m}", "The server refused the sign-in: {m}") } else { m } });
         }
         Ok(Ok(s)) => s,
     };
@@ -259,7 +259,7 @@ fn readable(e: &str) -> String {
     RE.replace(e, |c: &regex::Captures| {
         let bytes: Vec<u8> = c[1].split(", ").filter_map(|n| n.trim().parse().ok()).collect();
         let text = String::from_utf8_lossy(&bytes);
-        format!("服务器回了无法识别的内容：{}", text.lines().next().unwrap_or("").trim())
+        tr!("服务器回了无法识别的内容：{}", "The server sent an unrecognized response: {}", text.lines().next().unwrap_or("").trim())
     })
     .into_owned()
 }
@@ -281,10 +281,10 @@ async fn run(ctx: Arc<Ctx>, id: i64, rx: mpsc::UnboundedReceiver<Op>, wake: Arc<
             Err(_) => return, // 账号被删了
         };
         let Some(stored) = secret::get(&secret::account_key(id)) else {
-            set_status(&ctx, id, |s| { s.state = "error".into(); s.error_kind = "auth".into(); s.error = "没有找到这个账号的密码，请重新填写".into(); });
+            set_status(&ctx, id, |s| { s.state = "error".into(); s.error_kind = "auth".into(); s.error = crate::i18n::t("没有找到这个账号的密码，请重新填写", "No password found for this account. Please enter it again.").into(); });
             loop {
                 tokio::select! { _ = wake.notified() => {}, _ = stop.notified() => return }
-                park_ops(rx.as_mut().unwrap(), &mut backlog, "这个账号还没有密码");
+                park_ops(rx.as_mut().unwrap(), &mut backlog, crate::i18n::t("这个账号还没有密码", "This account has no password yet"));
                 if secret::get(&secret::account_key(id)).is_some() {
                     break;
                 }
@@ -306,7 +306,7 @@ async fn run(ctx: Arc<Ctx>, id: i64, rx: mpsc::UnboundedReceiver<Op>, wake: Arc<
         };
         match res {
             Err(e) => {
-                log_line(&ctx, id, format!("连接失败：{}", e.msg));
+                log_line(&ctx, id, tr!("连接失败：{}", "Connection failed: {}", e.msg));
                 if e.auth {
                     oauth::forget(id);
                     auth_fails += 1;
@@ -325,7 +325,7 @@ async fn run(ctx: Arc<Ctx>, id: i64, rx: mpsc::UnboundedReceiver<Op>, wake: Arc<
                         tokio::select! {
                             _ = tokio::time::sleep_until(deadline) => break,
                             _ = wake.notified() => {
-                                park_ops(rx.as_mut().unwrap(), &mut backlog, "账号授权失效，请先修复");
+                                park_ops(rx.as_mut().unwrap(), &mut backlog, crate::i18n::t("账号授权失效，请先修复", "The account's authorization has expired. Fix it first."));
                                 let changed = secret::cred_gen(id) != base;
                                 if force.swap(false, Ordering::Relaxed) || changed {
                                     auth_fails = 0;
@@ -342,7 +342,7 @@ async fn run(ctx: Arc<Ctx>, id: i64, rx: mpsc::UnboundedReceiver<Op>, wake: Arc<
                         tokio::select! {
                             _ = tokio::time::sleep_until(deadline) => break,
                             _ = wake.notified() => {
-                                park_ops(rx.as_mut().unwrap(), &mut backlog, "邮件服务器暂时连不上");
+                                park_ops(rx.as_mut().unwrap(), &mut backlog, crate::i18n::t("邮件服务器暂时连不上", "Can't reach the mail server right now"));
                                 if force.swap(false, Ordering::Relaxed) {
                                     break;
                                 }
@@ -352,13 +352,13 @@ async fn run(ctx: Arc<Ctx>, id: i64, rx: mpsc::UnboundedReceiver<Op>, wake: Arc<
                     }
                     backoff = (backoff * 2).min(300);
                 }
-                park_ops(rx.as_mut().unwrap(), &mut backlog, "邮件服务器暂时连不上");
+                park_ops(rx.as_mut().unwrap(), &mut backlog, crate::i18n::t("邮件服务器暂时连不上", "Can't reach the mail server right now"));
             }
             Ok(session) => {
                 backoff = 10;
                 auth_fails = 0;
                 force.store(false, Ordering::Relaxed);
-                log_line(&ctx, id, "已连接".into());
+                log_line(&ctx, id, crate::i18n::t("已连接", "Connected").into());
                 let started = now();
                 let mut w = SessionWorker {
                     ctx: ctx.clone(),
@@ -380,7 +380,7 @@ async fn run(ctx: Arc<Ctx>, id: i64, rx: mpsc::UnboundedReceiver<Op>, wake: Arc<
                     Ok(()) => return, // 收到停止信号
                     Err(e) => {
                         let e = readable(&e.to_string());
-                        log_line(&ctx, id, format!("连接中断：{e}"));
+                        log_line(&ctx, id, tr!("连接中断：{e}", "Connection lost: {e}"));
                         set_status(&ctx, id, |s| { s.state = "offline".into(); s.error_kind = "network".into(); s.error = e.clone(); });
                         // 连上没多久又出错（多半每次都会错）：越等越久，别每 5 秒重来一遍
                         serve_fails = if now() - started < 120 { serve_fails + 1 } else { 1 };
@@ -389,7 +389,7 @@ async fn run(ctx: Arc<Ctx>, id: i64, rx: mpsc::UnboundedReceiver<Op>, wake: Arc<
                             _ = tokio::time::sleep(Duration::from_secs(wait)) => {}
                             _ = stop.notified() => return,
                         }
-                        park_ops(rx.as_mut().unwrap(), &mut backlog, "邮件服务器暂时连不上");
+                        park_ops(rx.as_mut().unwrap(), &mut backlog, crate::i18n::t("邮件服务器暂时连不上", "Can't reach the mail server right now"));
                     }
                 }
             }
@@ -523,7 +523,7 @@ impl SessionWorker {
         let session = self.s.take().expect("session");
         let mut handle = session.idle();
         if let Err(e) = handle.init().await {
-            return Err(anyhow!("IDLE 失败：{e}"));
+            return Err(anyhow!(tr!("IDLE 失败：{e}", "IDLE failed: {e}")));
         }
         let outcome = {
             let (fut, _stop_src) = handle.wait_with_timeout(Duration::from_secs(IDLE_SECS));
@@ -531,7 +531,7 @@ impl SessionWorker {
                 r = fut => match r {
                     Ok(async_imap::extensions::idle::IdleResponse::NewData(_)) => Wake::NewMail,
                     Ok(_) => Wake::Timeout,
-                    Err(e) => return Err(anyhow!("IDLE 中断：{e}")),
+                    Err(e) => return Err(anyhow!(tr!("IDLE 中断：{e}", "IDLE interrupted: {e}"))),
                 },
                 _ = wake.notified() => Wake::Op,
                 _ = stop.notified() => Wake::Stop,
@@ -539,7 +539,7 @@ impl SessionWorker {
         };
         let session = tokio::time::timeout(Duration::from_secs(20), handle.done())
             .await
-            .map_err(|_| anyhow!("退出 IDLE 超时"))??;
+            .map_err(|_| anyhow!("{}", crate::i18n::t("退出 IDLE 超时", "Leaving IDLE timed out")))??;
         self.s = Some(session);
         Ok(outcome)
     }
@@ -547,7 +547,7 @@ impl SessionWorker {
     async fn uid_next(&mut self, path: &str) -> Result<Option<u32>> {
         let mb = tokio::time::timeout(Duration::from_secs(20), self.sess().status(path, "(UIDNEXT)"))
             .await
-            .map_err(|_| anyhow!("服务器没有响应"))??;
+            .map_err(|_| anyhow!("{}", crate::i18n::t("服务器没有响应", "The server didn't respond")))??;
         Ok(mb.uid_next)
     }
 
@@ -883,7 +883,7 @@ impl SessionWorker {
             self.select(path).await?;
         }
         let fetches: Vec<async_imap::types::Fetch> = self.sess().uid_fetch(uid.to_string(), "(UID BODY.PEEK[])").await?.try_collect().await?;
-        let raw = fetches.iter().find_map(|f| f.body().map(|b| b.to_vec())).ok_or_else(|| anyhow!("服务器上找不到这封邮件了"))?;
+        let raw = fetches.iter().find_map(|f| f.body().map(|b| b.to_vec())).ok_or_else(|| anyhow!("{}", crate::i18n::t("服务器上找不到这封邮件了", "This email is no longer on the server")))?;
         store_body(&self.ctx, msg_id, &raw)?;
         Ok(())
     }
@@ -896,7 +896,7 @@ impl SessionWorker {
                 let failed_conn = r.as_ref().err().map(|e| e.downcast_ref::<async_imap::error::Error>().is_some()).unwrap_or(false);
                 let _ = reply.send(r.as_ref().map(|_| ()).map_err(|e| e.to_string()));
                 if failed_conn {
-                    return Err(anyhow!("取正文时连接出错"));
+                    return Err(anyhow!("{}", crate::i18n::t("取正文时连接出错", "Connection error while fetching the email body")));
                 }
             }
             Op::Flags { path, uids, flag, add } => {
@@ -927,7 +927,7 @@ impl SessionWorker {
                 };
                 if !exists {
                     // 没有归档文件夹的邮箱（如 Stalwart 默认）：先建再移
-                    self.sess().create(&to).await.map_err(|e| anyhow!("创建文件夹「{to}」失败：{e}"))?;
+                    self.sess().create(&to).await.map_err(|e| anyhow!(tr!("创建文件夹「{to}」失败：{e}", "Couldn't create folder \"{to}\": {e}")))?;
                     self.sync_folder_list().await?;
                 }
                 self.select(&from).await?;

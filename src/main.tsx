@@ -1,3 +1,5 @@
+// 界面语言要最先确定：别的模块里有按语言生成的常量
+import './lib/i18n'
 import React, { useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom/client'
 import './styles.css'
@@ -17,6 +19,7 @@ import Welcome from './views/Welcome'
 import { AddAccount, RepairAccount } from './views/AccountSheets'
 import { GuideSheet } from './views/Guide'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { L } from './lib/i18n'
 
 // 后端开了磨砂玻璃（Windows 11 亚克力）时设的标记：样式据此把窗口底换成透明
 if ((window as { __KJM_GLASS__?: boolean }).__KJM_GLASS__) document.documentElement.dataset.glass = '1'
@@ -70,13 +73,13 @@ function useBackendEvents() {
       on<{ msgId: number; state: string; error?: string }>('ai-state', (p) => {
         if (p.state === 'running') return
         // 正在看的这封重新分析失败（原批注保留着）：提示一下
-        if (p.state === 'failed' && useApp.getState().selected === p.msgId && useApp.getState().open?.ai?.state !== 2) useApp.getState().toast(`AI 分析没成功：${(p.error || '').slice(0, 80)}`, { kind: 'err' })
+        if (p.state === 'failed' && useApp.getState().selected === p.msgId && useApp.getState().open?.ai?.state !== 2) useApp.getState().toast(L(`AI 分析没成功：${(p.error || '').slice(0, 80)}`, `AI analysis failed: ${(p.error || '').slice(0, 80)}`), { kind: 'err' })
         if (useApp.getState().selected === p.msgId) reopen = true
         refresh()
       }),
       on<{ version: string; notes: string }>('update-available', (u) => {
         const s = useApp.getState()
-        s.toast(`有新版本 ${u.version}${u.notes ? `：${u.notes.slice(0, 60)}` : ''}`, { action: { label: '更新', run: () => useApp.getState().installUpdate(u.version) }, ttl: 30000 })
+        s.toast(L(`有新版本 ${u.version}${u.notes ? `：${u.notes.slice(0, 60)}` : ''}`, `Version ${u.version} is available${u.notes ? `: ${u.notes.slice(0, 60)}` : ''}`), { action: { label: L('更新', 'Update'), run: () => useApp.getState().installUpdate(u.version) }, ttl: 30000 })
       }),
       on('tray-compose', () => { const s = useApp.getState(); if (s.accounts.length) s.openCompose('new') }),
     ]
@@ -104,11 +107,11 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement>) {
         case '/': e.preventDefault(); searchRef.current?.focus(); break
         case 'j': case 'ArrowDown': if (s.page === 'mail' && s.items.length) { e.preventDefault(); s.select(s.items[Math.min(s.items.length - 1, idx + 1)]?.id ?? s.items[0].id) } break
         case 'k': case 'ArrowUp': if (s.page === 'mail' && idx > 0) { e.preventDefault(); s.select(s.items[idx - 1].id) } break
-        case 'e': if (targets.length && s.page === 'mail') s.move(targets, 'archive', '归档'); break
+        case 'e': if (targets.length && s.page === 'mail') s.move(targets, 'archive', L('归档', 'archived')); break
         // Mac 键盘上的 delete 键发的是 Backspace
         case 'Backspace': if (!IS_MAC) break
         // falls through
-        case 'Delete': case '#': if (targets.length && s.page === 'mail') s.move(targets, 'trash', '删除'); break
+        case 'Delete': case '#': if (targets.length && s.page === 'mail') s.move(targets, 'trash', L('删除', 'deleted')); break
         case 's': if (targets.length) { const m = s.items.find((x) => x.id === targets[0]); s.mark(targets, { flagged: !m?.flagged }) } break
         case 'u': if (targets.length) { const m = s.items.find((x) => x.id === targets[0]); s.mark(targets, { seen: !m?.seen }) } break
         case 'r': if (cur) { e.preventDefault(); s.openCompose('reply', cur) } break

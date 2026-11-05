@@ -76,24 +76,28 @@ impl AsyncTokioStream for TlsConn {
     }
 }
 
-const NO_RESPONSE: &str = "发信服务器没有响应：";
+fn no_response() -> &'static str {
+    crate::i18n::t(NO_RESP_ZH, NO_RESP_EN)
+}
+const NO_RESP_ZH: &str = "发信服务器没有响应：";
+const NO_RESP_EN: &str = "The outgoing server didn't respond: ";
 
 /// 连上、加密、登录
 async fn open(c: &SmtpCfg) -> Result<AsyncSmtpConnection> {
-    let (tcp, via_proxy) = crate::net::dial(&c.host, c.port).await.map_err(|e| anyhow!("连不上发信服务器：{e}"))?;
+    let (tcp, via_proxy) = crate::net::dial(&c.host, c.port).await.map_err(|e| anyhow!(tr!("连不上发信服务器：{e}", "Can't reach the outgoing mail server: {e}")))?;
     let mut conn = if via_proxy {
         // 不少代理节点封 SMTP 端口（iCloud 的 587 就是）：隧道建好了却收不到欢迎语，或者一直没动静。
         // 只有这两种情况改直连再试；证书错、不支持 STARTTLS 之类直连也一样，照原样报
         let first = match tokio::time::timeout(Duration::from_secs(15), handshake(c, tcp)).await {
             Ok(Ok(conn)) => Ok(conn),
-            Ok(Err(x)) if !x.to_string().starts_with(NO_RESPONSE) => return Err(x),
+            Ok(Err(x)) if !crate::i18n::starts_with_any(&x.to_string(), NO_RESP_ZH, NO_RESP_EN) => return Err(x),
             Ok(Err(x)) => Err(x.to_string()),
-            Err(_) => Err("15 秒没有响应".to_string()),
+            Err(_) => Err(crate::i18n::t("15 秒没有响应", "no response in 15 seconds").to_string()),
         };
         match first {
             Ok(conn) => conn,
             Err(first) => {
-                let fail = |x: String| anyhow!("经代理连发信服务器失败（{first}），改直连也失败：{x}");
+                let fail = |x: String| anyhow!(tr!("经代理连发信服务器失败（{first}），改直连也失败：{x}", "Connecting to the outgoing server through the proxy failed ({first}), and a direct connection also failed: {x}"));
                 let tcp = crate::net::dial_direct(&c.host, c.port).await.map_err(fail)?;
                 timed(20, handshake(c, tcp)).await.map_err(|x| fail(x.to_string()))?
             }
@@ -110,16 +114,16 @@ async fn handshake(c: &SmtpCfg, tcp: TcpStream) -> Result<AsyncSmtpConnection> {
     let peer = tcp.peer_addr()?;
     let hello = ClientId::default();
     let conn = if c.tls && c.port == 465 {
-        let cx = native_tls::TlsConnector::new().map_err(|e| anyhow!("TLS 初始化失败：{e}"))?;
-        let tls = tokio_native_tls::TlsConnector::from(cx).connect(&c.host, tcp).await.map_err(|e| anyhow!("发信服务器 TLS 握手失败：{e}"))?;
-        AsyncSmtpConnection::connect_with_transport(Box::new(TlsConn(tls, peer)), &hello).await.map_err(|e| anyhow!("{NO_RESPONSE}{e}"))?
+        let cx = native_tls::TlsConnector::new().map_err(|e| anyhow!(tr!("TLS 初始化失败：{e}", "TLS setup failed: {e}")))?;
+        let tls = tokio_native_tls::TlsConnector::from(cx).connect(&c.host, tcp).await.map_err(|e| anyhow!(tr!("发信服务器 TLS 握手失败：{e}", "TLS handshake with the outgoing server failed: {e}")))?;
+        AsyncSmtpConnection::connect_with_transport(Box::new(TlsConn(tls, peer)), &hello).await.map_err(|e| anyhow!("{}{e}", no_response()))?
     } else {
-        let mut conn = AsyncSmtpConnection::connect_with_transport(Box::new(tcp), &hello).await.map_err(|e| anyhow!("{NO_RESPONSE}{e}"))?;
+        let mut conn = AsyncSmtpConnection::connect_with_transport(Box::new(tcp), &hello).await.map_err(|e| anyhow!("{}{e}", no_response()))?;
         if !conn.can_starttls() {
-            return Err(anyhow!("发信服务器不支持加密连接（STARTTLS），为了安全不发送"));
+            return Err(anyhow!("{}", crate::i18n::t("发信服务器不支持加密连接（STARTTLS），为了安全不发送", "The outgoing server doesn't support an encrypted connection (STARTTLS), so nothing was sent")));
         }
-        let params = TlsParameters::new(c.host.clone()).map_err(|e| anyhow!("TLS 初始化失败：{e}"))?;
-        conn.starttls(params, &hello).await.map_err(|e| anyhow!("发信服务器 TLS 握手失败：{e}"))?;
+        let params = TlsParameters::new(c.host.clone()).map_err(|e| anyhow!(tr!("TLS 初始化失败：{e}", "TLS setup failed: {e}")))?;
+        conn.starttls(params, &hello).await.map_err(|e| anyhow!(tr!("发信服务器 TLS 握手失败：{e}", "TLS handshake with the outgoing server failed: {e}")))?;
         conn
     };
     Ok(conn)
@@ -130,22 +134,30 @@ async fn login(c: &SmtpCfg, conn: &mut AsyncSmtpConnection) -> Result<()> {
         // XOAUTH2 自己发：令牌被拒时服务器先回 334 + 错误说明，要回一个空行才拿到真正的失败原因（lettre 遇到 334 只会报看不懂的错）
         use base64::Engine;
         let ir = base64::engine::general_purpose::STANDARD.encode(format!("user={}\x01auth=Bearer {}\x01\x01", c.username, c.password));
-        let r = conn.command(format!("AUTH XOAUTH2 {ir}\r\n")).await.map_err(|e| anyhow!("{AUTH_FAIL}{e}"))?;
+        let r = conn.command(format!("AUTH XOAUTH2 {ir}\r\n")).await.map_err(|e| anyhow!("{}{e}", auth_fail()))?;
         if !r.has_code(235) {
             let e = match conn.command("\r\n").await {
                 Err(e) => e.to_string(),
                 Ok(r) => r.message().collect::<Vec<_>>().join(" "),
             };
-            return Err(anyhow!("{AUTH_FAIL}{e}"));
+            return Err(anyhow!("{}{e}", auth_fail()));
         }
     } else {
-        conn.auth(&[Mechanism::Plain, Mechanism::Login], &Credentials::new(c.username.clone(), c.password.clone())).await.map_err(|e| anyhow!("{AUTH_FAIL}{e}"))?;
+        conn.auth(&[Mechanism::Plain, Mechanism::Login], &Credentials::new(c.username.clone(), c.password.clone())).await.map_err(|e| anyhow!("{}{e}", auth_fail()))?;
     }
     Ok(())
 }
 
 /// 登录失败的错误都以这个开头（发信时据此判断要不要换个令牌重试）
-pub const AUTH_FAIL: &str = "发信服务器登录失败：";
+/// 报错前缀：上层靠它认出「登录失败」
+pub fn auth_fail() -> &'static str {
+    crate::i18n::t(AUTH_FAIL_ZH, AUTH_FAIL_EN)
+}
+const AUTH_FAIL_ZH: &str = "发信服务器登录失败：";
+const AUTH_FAIL_EN: &str = "Sign-in to the outgoing server failed: ";
+pub fn is_auth_fail(e: &str) -> bool {
+    crate::i18n::starts_with_any(e, AUTH_FAIL_ZH, AUTH_FAIL_EN)
+}
 
 /// 收尾：服务器不回 QUIT 也别卡住（信已经发出去了）
 async fn quit(mut conn: AsyncSmtpConnection) {
@@ -153,7 +165,7 @@ async fn quit(mut conn: AsyncSmtpConnection) {
 }
 
 async fn timed<T>(secs: u64, f: impl std::future::Future<Output = Result<T>>) -> Result<T> {
-    tokio::time::timeout(Duration::from_secs(secs), f).await.map_err(|_| anyhow!("发信服务器响应超时"))?
+    tokio::time::timeout(Duration::from_secs(secs), f).await.map_err(|_| anyhow!("{}", crate::i18n::t("发信服务器响应超时", "The outgoing server timed out")))?
 }
 
 /// 连上到登录完的总时限：代理那条路最多约 40 秒，还要留出改直连的时间
@@ -205,13 +217,13 @@ pub fn build(o: &Outgoing, domain: &str, bcc_header: bool) -> Result<Vec<u8>> {
 
 /// 信封：发件人和全部收件人（含密送），顺带检查地址格式。Graph 发信不用信封，但也先过这一遍
 pub fn envelope(o: &Outgoing) -> Result<lettre::address::Envelope> {
-    let from: lettre::Address = o.from.email.parse().map_err(|_| anyhow!("发件地址不对：{}", o.from.email))?;
+    let from: lettre::Address = o.from.email.parse().map_err(|_| anyhow!(tr!("发件地址不对：{}", "Invalid sender address: {}", o.from.email)))?;
     let mut rcpt = vec![];
     for a in o.to.iter().chain(&o.cc).chain(&o.bcc) {
-        rcpt.push(a.email.parse::<lettre::Address>().map_err(|_| anyhow!("收件地址不对：{}", a.email))?);
+        rcpt.push(a.email.parse::<lettre::Address>().map_err(|_| anyhow!(tr!("收件地址不对：{}", "Invalid recipient address: {}", a.email)))?);
     }
     if rcpt.is_empty() {
-        return Err(anyhow!("没有收件人"));
+        return Err(anyhow!("{}", crate::i18n::t("没有收件人", "No recipients")));
     }
     lettre::address::Envelope::new(Some(from), rcpt).map_err(|e| anyhow!("{e}"))
 }
@@ -219,7 +231,7 @@ pub fn envelope(o: &Outgoing) -> Result<lettre::address::Envelope> {
 pub async fn send(c: &SmtpCfg, o: &Outgoing, raw: &[u8]) -> Result<()> {
     let env = envelope(o)?;
     let mut conn = timed(OPEN_SECS, open(c)).await?;
-    timed(upload_secs(raw.len()), async { conn.send(&env, raw).await.map_err(|e| anyhow!("发送失败：{e}")) }).await?;
+    timed(upload_secs(raw.len()), async { conn.send(&env, raw).await.map_err(|e| anyhow!(tr!("发送失败：{e}", "Sending failed: {e}"))) }).await?;
     quit(conn).await;
     Ok(())
 }
