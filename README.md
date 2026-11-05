@@ -4,11 +4,14 @@
 </picture>
 
 <p align="center">
+  <b>简体中文</b> · <a href="README.en.md">English</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/ekoouu/kojoomail/releases/latest"><b>下载</b></a> ·
   <a href="#能做什么">功能</a> ·
   <a href="#隐私">隐私</a> ·
-  <a href="#从源码编译">从源码编译</a> ·
-  <a href="#english">English</a>
+  <a href="#从源码编译">从源码编译</a>
 </p>
 
 <p align="center">
@@ -154,17 +157,3 @@ bash scripts/build-mac.sh          # macOS（在 Mac 上跑）
 
 [GNU AGPL-3.0](LICENSE)。你可以免费使用、修改和分发；分发修改后的版本（包括做成网络服务给别人用）时，也必须按 AGPL 公开源码。需要闭源使用或商业授权，请联系 eko@kojoo.co。
 
----
-
-## English
-
-**Kojoo Mail** is a desktop email client for Windows and macOS that puts all your mailboxes in one inbox: QQ, NetEase, Gmail, Outlook, iCloud, and any IMAP account.
-
-- **AI notes on every email**: a one-line summary, category, key facts (quantities, terms, deadlines), extracted to-dos, and a suggested reply in the sender's language. Uses your own OpenAI-compatible API key (DeepSeek, Qwen, OpenAI, or self-hosted). AI drafts; it never sends on your behalf.
-- **Daily digest**: what to reply to, what to pay, and what to follow up on, on one page.
-- **Local-first**: mail stays on your computer; credentials live in the OS credential store. No accounts, no telemetry, no ads.
-- **Light on resources**: a ~3 MB Windows installer; one connection per account, push instead of polling; in Task Manager 20–30 MB for the main process and about 110 MB including the WebView2 UI processes (about 40 MB when minimized to the tray).
-
-Download the latest installer from [Releases](https://github.com/ekoouu/kojoomail/releases/latest). To build from source, install Node.js 20+ and Rust, then run `npm ci && npm run tauri dev`. If you redistribute a modified build, replace the updater `pubkey` and `endpoints` in `src-tauri/tauri.conf.json`.
-
-Licensed under [AGPL-3.0](LICENSE). For commercial licensing, contact eko@kojoo.co.

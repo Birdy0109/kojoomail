@@ -33,12 +33,20 @@ body { min-width: 1600px; background: ${t.bg}; color: ${t.ink}; font-family: "No
 .win img { display: block; width: 100%; }
 `
 
-const hero = (t, img) => `<html><head><style>${base(t)}
+const TEXT = {
+  zh: { h1: '所有邮箱，<br><em>一个</em>收件箱。', sub: 'QQ、网易、Gmail、Outlook、iCloud、企业邮统一收发。AI 帮你读信、标重点、列待办、起草回复，发不发由你决定。',
+    chips: ['Windows', 'macOS', '邮件只存在本机', '自带 AI 密钥', '开源 · AGPL-3.0'], rule: 'All your mailboxes, one inbox.' },
+  en: { h1: 'All your mailboxes,<br><em>one</em> inbox.', sub: 'Gmail, Outlook, iCloud, QQ, NetEase and any IMAP account in one place. AI reads each email, flags what matters, lists to-dos and drafts replies. You decide what gets sent.',
+    chips: ['Windows', 'macOS', 'Mail stays on your device', 'Bring your own AI key', 'Open source · AGPL-3.0'], rule: '' },
+}
+const hero = (t, img, lang = 'zh') => { const x = TEXT[lang]; return `<html><head><style>${base(t)}
 .paper { height: 900px; padding: 92px 0 0 96px; }
 .icon { width: 112px; height: 112px; display: block; margin-left: -10px; filter: drop-shadow(0 14px 22px rgba(80,40,10,.25)); }
 .brand { margin-top: 26px; font: italic 400 34px "Instrument Serif", serif; color: ${t.sec}; letter-spacing: .01em; }
 h1 { margin-top: 10px; font: 700 64px/1.18 "Noto Serif SC", serif; letter-spacing: -.01em; }
 h1 em { font-style: normal; color: ${t.accent}; }
+h1.en { font: italic 400 72px/1.08 "Instrument Serif", serif; letter-spacing: -.005em; }
+h1.en em { font-style: italic; }
 .sub { margin-top: 22px; width: 470px; font-size: 19px; line-height: 1.75; color: ${t.sec}; }
 .chips { margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap; width: 360px; }
 .chips span { padding: 7px 14px; border-radius: 999px; font-size: 14px; background: ${t.chip}; border: 1px solid ${t.line}; color: ${t.ink}; }
@@ -47,12 +55,12 @@ h1 em { font-style: normal; color: ${t.accent}; }
 </style></head><body><div class="paper">
 <img class="icon" src="${icon}">
 <div class="brand">Kojoo Mail</div>
-<h1>所有邮箱，<br><em>一个</em>收件箱。</h1>
-<div class="sub">QQ、网易、Gmail、Outlook、iCloud、企业邮统一收发。AI 帮你读信、标重点、列待办、起草回复，发不发由你决定。</div>
-<div class="chips"><span>Windows</span><span>macOS</span><span>邮件只存在本机</span><span>自带 AI 密钥</span><span>开源 · AGPL-3.0</span></div>
-<div class="rule">All your mailboxes, one inbox.</div>
+<h1${lang === 'en' ? ' class="en"' : ''}>${x.h1}</h1>
+<div class="sub">${x.sub}</div>
+<div class="chips"${lang === 'en' ? ' style="width: 480px"' : ''}>${x.chips.map((c) => `<span>${c}</span>`).join('')}</div>
+${x.rule ? `<div class="rule">${x.rule}</div>` : ''}
 <div class="win"><img src="${img}"></div>
-</div></body></html>`
+</div></body></html>` }
 
 // 功能图：截图放在纸色底上；crop = [x, y, w, h]（截图的 CSS 像素，截图本身是 1360×820）
 const feature = (t, img, crop) => {
@@ -78,6 +86,8 @@ const feature = (t, img, crop) => {
   }
   await render(hero(THEMES.light, shot('inbox')), 'hero-light')
   await render(hero(THEMES.dark, shot('dark')), 'hero-dark')
+  await render(hero(THEMES.light, shot('inbox'), 'en'), 'hero-light-en')
+  await render(hero(THEMES.dark, shot('dark'), 'en'), 'hero-dark-en')
   await render(feature(THEMES.light, shot('inbox'), [600, 44, 760, 776]), 'feature-ai')
   await render(feature(THEMES.light, shot('digest')), 'feature-digest')
   await render(feature(THEMES.light, shot('compose')), 'feature-compose')
