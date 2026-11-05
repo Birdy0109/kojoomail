@@ -155,6 +155,10 @@ bash scripts/build-mac.sh          # macOS (run on a Mac)
 
 Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting.
 
+## Acknowledgements
+
+Thanks to the [LINUX DO](https://linux.do) community, where this project was first shared and got its early feedback.
+
 ## License
 
 [GNU AGPL-3.0](LICENSE). You are free to use, modify and distribute it. If you distribute a modified version, including running it as a network service for others, you must also publish its source under the AGPL. For closed-source use or a commercial license, contact eko@kojoo.co.

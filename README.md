@@ -153,6 +153,10 @@ bash scripts/build-mac.sh          # macOS（在 Mac 上跑）
 
 欢迎提 Issue 和 Pull Request。提交前请看 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## 致谢
+
+感谢 [LINUX DO](https://linux.do) 社区，项目最早在这里分享和收集反馈。
+
 ## 许可证
 
 [GNU AGPL-3.0](LICENSE)。你可以免费使用、修改和分发；分发修改后的版本（包括做成网络服务给别人用）时，也必须按 AGPL 公开源码。需要闭源使用或商业授权，请联系 eko@kojoo.co。
