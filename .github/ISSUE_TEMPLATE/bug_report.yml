@@ -1,0 +1,61 @@
+name: 问题反馈 Bug report
+description: 软件出错、和预期不一样 / Something isn't working
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢反馈。**安全漏洞请不要在这里提**，按 [SECURITY.md](https://github.com/ekoouu/kojoomail/blob/main/SECURITY.md) 发邮件。
+        Thanks for reporting. **Please don't report security vulnerabilities here**; see [SECURITY.md](https://github.com/ekoouu/kojoomail/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Kojoo Mail 版本 / Version
+      description: 设置 → 关于 / Settings → About
+      placeholder: "0.2.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 系统 / System
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS（Apple 芯片 / Apple silicon）
+        - macOS（Intel）
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: 邮箱服务商 / Mail provider
+      description: 和某个邮箱有关时填，比如 Gmail、QQ、网易 163、Outlook、公司邮箱 / If it's related to a mailbox
+      placeholder: "QQ 邮箱 / Gmail / …"
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 / What happened
+      description: 你看到了什么，本来应该是什么样 / What you saw and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 怎么复现 / Steps to reproduce
+      placeholder: |
+        1. 打开…
+        2. 点…
+        3. 出现…
+  - type: textarea
+    id: diag
+    attributes:
+      label: 诊断信息 / Diagnostics
+      description: |
+        设置 → 关于 →「导出诊断信息」，会在「下载」文件夹生成一个文件，拖到这里上传。里面是连接和发信记录，邮箱地址已打码，不含密码和邮件内容；上传前请自己再看一眼。
+        Settings → About → "导出诊断信息" (Export diagnostics) saves a file to your Downloads folder; drag it here. Email addresses are masked and it contains no passwords or mail content, but please check it before uploading.
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: 截图 / Screenshots
+      description: 有的话贴上来，注意遮住邮件内容和邮箱地址 / Optional; please hide mail content and addresses
