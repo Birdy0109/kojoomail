@@ -4,7 +4,7 @@
 </picture>
 
 <p align="center">
-  <a href="https://github.com/Tomp-Akoe/kojoomail/releases/latest"><b>下载</b></a> ·
+  <a href="https://github.com/ekoouu/kojoomail/releases/latest"><b>下载</b></a> ·
   <a href="#能做什么">功能</a> ·
   <a href="#隐私">隐私</a> ·
   <a href="#从源码编译">从源码编译</a> ·
@@ -100,7 +100,7 @@ AI 从邮件里提出来的待办和你自己加的放在一起，按今天、�
 
 ## 下载
 
-到 **[Releases](https://github.com/Tomp-Akoe/kojoomail/releases/latest)** 下载最新版：
+到 **[Releases](https://github.com/ekoouu/kojoomail/releases/latest)** 下载最新版：
 
 | 系统 | 文件 |
 |---|---|
@@ -155,6 +155,6 @@ bash scripts/build-mac.sh          # macOS（在 Mac 上跑）
 - **Local-first**: mail stays on your computer; credentials live in the OS credential store. No accounts, no telemetry, no ads.
 - **Light on resources**: one connection per account, push instead of polling, about 100 MB of memory at idle.
 
-Download the latest installer from [Releases](https://github.com/Tomp-Akoe/kojoomail/releases/latest). To build from source, install Node.js 20+ and Rust, then run `npm ci && npm run tauri dev`. If you redistribute a modified build, replace the updater `pubkey` and `endpoints` in `src-tauri/tauri.conf.json`.
+Download the latest installer from [Releases](https://github.com/ekoouu/kojoomail/releases/latest). To build from source, install Node.js 20+ and Rust, then run `npm ci && npm run tauri dev`. If you redistribute a modified build, replace the updater `pubkey` and `endpoints` in `src-tauri/tauri.conf.json`.
 
 Licensed under [AGPL-3.0](LICENSE). For commercial licensing, contact eko@kojoo.co.
