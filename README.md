@@ -13,7 +13,7 @@
 
 <p align="center">
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%2F%2011-1B4A80?style=flat-square">
-  <img alt="macOS Apple Silicon" src="https://img.shields.io/badge/macOS-Apple%20芯片-1B1712?style=flat-square">
+  <img alt="macOS 11+" src="https://img.shields.io/badge/macOS-11%2B%20·%20Apple%20芯片%20%2F%20Intel-1B1712?style=flat-square">
   <img alt="License AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-C63E1F?style=flat-square">
   <img alt="Tauri 2 + Rust" src="https://img.shields.io/badge/Tauri%202-Rust%20%2B%20React-6B5F4E?style=flat-square">
 </p>
@@ -82,7 +82,17 @@ AI 从邮件里提出来的待办和你自己加的放在一起，按今天、�
 
 ### 省资源
 
-每个账号只保持一条连接，有新邮件服务器会推送过来，不轮询。空闲时 CPU 几乎为零，常驻内存约 100 MB。关掉窗口缩到托盘，后台照常收信。
+安装包：Windows 约 3 MB，macOS 约 10 MB。界面用系统自带的网页组件显示，不在安装包里另带一个浏览器。
+
+每个账号只保持一条连接，有新邮件时由服务器推送过来，软件不会反复去查。空闲时 CPU 几乎为零。关掉窗口会缩到托盘，后台照常收信，界面占的内存同时让系统收回。
+
+Windows 任务管理器里的内存（作者日常使用，Windows 11，2026 年 11 月实测）：
+
+| | 内存 |
+|---|---|
+| 主程序 `kojoomail.exe`（收信、AI、本地数据库） | 20～30 MB（刚启动约 20 MB，连开一整天约 30 MB） |
+| 加上界面进程（任务管理器里显示为 Microsoft Edge WebView2），窗口开着 | 约 110 MB |
+| 加上界面进程，缩到托盘后 | 约 40 MB |
 
 ## 隐私
 
@@ -105,7 +115,7 @@ AI 从邮件里提出来的待办和你自己加的放在一起，按今天、�
 | 系统 | 文件 |
 |---|---|
 | Windows 10/11（64 位） | `KojooMail_版本号_x64-setup.exe` |
-| macOS（Apple 芯片） | `KojooMail_版本号_aarch64.dmg` |
+| macOS 11 及以上（Apple 芯片和 Intel 芯片通用） | `KojooMail_版本号_universal.dmg` |
 
 软件有新版本时会提示你，点一下就能更新。
 
@@ -153,7 +163,7 @@ bash scripts/build-mac.sh          # macOS（在 Mac 上跑）
 - **AI notes on every email**: a one-line summary, category, key facts (quantities, terms, deadlines), extracted to-dos, and a suggested reply in the sender's language. Uses your own OpenAI-compatible API key (DeepSeek, Qwen, OpenAI, or self-hosted). AI drafts; it never sends on your behalf.
 - **Daily digest**: what to reply to, what to pay, and what to follow up on, on one page.
 - **Local-first**: mail stays on your computer; credentials live in the OS credential store. No accounts, no telemetry, no ads.
-- **Light on resources**: one connection per account, push instead of polling, about 100 MB of memory at idle.
+- **Light on resources**: a ~3 MB Windows installer; one connection per account, push instead of polling; in Task Manager 20–30 MB for the main process and about 110 MB including the WebView2 UI processes (about 40 MB when minimized to the tray).
 
 Download the latest installer from [Releases](https://github.com/ekoouu/kojoomail/releases/latest). To build from source, install Node.js 20+ and Rust, then run `npm ci && npm run tauri dev`. If you redistribute a modified build, replace the updater `pubkey` and `endpoints` in `src-tauri/tauri.conf.json`.
 
