@@ -4,7 +4,7 @@
 </picture>
 
 <p align="center">
-  <a href="https://mail.songxxai.com/kojoomail/"><b>下载</b></a> ·
+  <a href="https://github.com/Tomp-Akoe/kojoomail/releases/latest"><b>下载</b></a> ·
   <a href="#能做什么">功能</a> ·
   <a href="#隐私">隐私</a> ·
   <a href="#从源码编译">从源码编译</a> ·
@@ -100,11 +100,17 @@ AI 从邮件里提出来的待办和你自己加的放在一起，按今天、�
 
 ## 下载
 
-**[mail.songxxai.com/kojoomail](https://mail.songxxai.com/kojoomail/)**：Windows 10/11（64 位）和 macOS（Apple 芯片）。
+到 **[Releases](https://github.com/Tomp-Akoe/kojoomail/releases/latest)** 下载最新版：
+
+| 系统 | 文件 |
+|---|---|
+| Windows 10/11（64 位） | `KojooMail_版本号_x64-setup.exe` |
+| macOS（Apple 芯片） | `KojooMail_版本号_aarch64.dmg` |
 
 软件有新版本时会提示你，点一下就能更新。
 
 > macOS 版暂时没有苹果开发者签名，第一次打开要去「系统设置 → 隐私与安全性」点「仍要打开」。
+> Windows 版暂时没有代码签名，安装时如果弹出「Windows 已保护你的电脑」，点「更多信息 → 仍要运行」。
 
 ## 从源码编译
 
@@ -149,6 +155,6 @@ bash scripts/build-mac.sh          # macOS（在 Mac 上跑）
 - **Local-first**: mail stays on your computer; credentials live in the OS credential store. No accounts, no telemetry, no ads.
 - **Light on resources**: one connection per account, push instead of polling, about 100 MB of memory at idle.
 
-Download: [mail.songxxai.com/kojoomail](https://mail.songxxai.com/kojoomail/). To build from source, install Node.js 20+ and Rust, then run `npm ci && npm run tauri dev`. If you redistribute a modified build, replace the updater `pubkey` and `endpoints` in `src-tauri/tauri.conf.json`.
+Download the latest installer from [Releases](https://github.com/Tomp-Akoe/kojoomail/releases/latest). To build from source, install Node.js 20+ and Rust, then run `npm ci && npm run tauri dev`. If you redistribute a modified build, replace the updater `pubkey` and `endpoints` in `src-tauri/tauri.conf.json`.
 
 Licensed under [AGPL-3.0](LICENSE). For commercial licensing, contact eko@kojoo.co.
