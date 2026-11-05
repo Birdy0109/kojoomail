@@ -62,6 +62,27 @@ ${x.rule ? `<div class="rule">${x.rule}</div>` : ''}
 <div class="win"><img src="${img}"></div>
 </div></body></html>` }
 
+// 分享预览图（GitHub Settings → Social preview 手动上传，1280×640）
+const social = (t, img) => `<html><head><style>${base(t)}
+body { min-width: 0; }
+.paper { width: 1280px; height: 640px; padding: 70px 0 0 72px; }
+.icon { width: 76px; height: 76px; display: block; margin-left: -6px; filter: drop-shadow(0 10px 16px rgba(80,40,10,.25)); }
+.brand { margin-top: 16px; font: italic 400 28px "Instrument Serif", serif; color: ${t.sec}; }
+h1 { margin-top: 6px; font: 700 50px/1.2 "Noto Serif SC", serif; letter-spacing: -.01em; }
+h1 em { font-style: normal; color: ${t.accent}; }
+.en { margin-top: 14px; font: italic 400 30px "Instrument Serif", serif; color: ${t.sec}; }
+.chips { position: absolute; left: 72px; bottom: 64px; display: flex; gap: 8px; flex-wrap: wrap; width: 400px; }
+.chips span { padding: 5px 12px; border-radius: 999px; font-size: 13px; background: ${t.chip}; border: 1px solid ${t.line}; }
+.win { position: absolute; left: 540px; top: 70px; width: 900px; }
+</style></head><body><div class="paper">
+<img class="icon" src="${icon}">
+<div class="brand">Kojoo Mail</div>
+<h1>所有邮箱，<br><em>一个</em>收件箱。</h1>
+<div class="en">All your mailboxes, one inbox.</div>
+<div class="chips"><span>Windows · macOS</span><span>AI 读信、列待办、起草回复</span><span>邮件只存在本机</span><span>开源 · AGPL-3.0</span></div>
+<div class="win"><img src="${img}"></div>
+</div></body></html>`
+
 // 功能图：截图放在纸色底上；crop = [x, y, w, h]（截图的 CSS 像素，截图本身是 1360×820）
 const feature = (t, img, crop) => {
   const [x, y, w, h] = crop || [0, 0, 1360, 820]
@@ -88,6 +109,9 @@ const feature = (t, img, crop) => {
   await render(hero(THEMES.dark, shot('dark')), 'hero-dark')
   await render(hero(THEMES.light, shot('inbox'), 'en'), 'hero-light-en')
   await render(hero(THEMES.dark, shot('dark'), 'en'), 'hero-dark-en')
+  await page.setViewportSize({ width: 1280, height: 640 })
+  await render(social(THEMES.light, shot('inbox')), 'social-preview')
+  await page.setViewportSize({ width: 1600, height: 900 })
   await render(feature(THEMES.light, shot('inbox'), [600, 44, 760, 776]), 'feature-ai')
   await render(feature(THEMES.light, shot('digest')), 'feature-digest')
   await render(feature(THEMES.light, shot('compose')), 'feature-compose')
