@@ -231,14 +231,14 @@ function AiCard({ m }: { m: MsgFull }) {
                   { label: L('友好亲切', 'Friendly'), run: () => draftWith('friendly') },
                   { label: L('简洁直接', 'Concise'), run: () => draftWith('brief') },
                 ])}>{L('换个语气', 'Change tone')}</button>
-                <button className="tb" aria-label={L('重新生成', 'Regenerate')} data-tip={L('用精细模型重新分析', 'Re-analyze with the detailed model')} onClick={regen}><Icon name="refresh" /></button>
+                <button className="tb" aria-label={L('重新生成', 'Regenerate')} data-tip={L('用精细模型重新分析', 'Re-analyze with the detailed model')} data-tip-pos="up" onClick={regen}><Icon name="refresh" /></button>
               </div>
             </>
           )}
           {!ai!.reply && (
             <div className="ai-actions" style={{ justifyContent: 'flex-end', paddingTop: 2 }}>
               <button className="btn sm sq" onClick={() => draftWith('pro')}>{L('让 AI 起草回复', 'Draft reply with AI')}</button>
-              <button className="tb" aria-label={L('重新生成', 'Regenerate')} data-tip={L('用精细模型重新分析', 'Re-analyze with the detailed model')} onClick={regen}><Icon name="refresh" /></button>
+              <button className="tb" aria-label={L('重新生成', 'Regenerate')} data-tip={L('用精细模型重新分析', 'Re-analyze with the detailed model')} data-tip-pos="up" onClick={regen}><Icon name="refresh" /></button>
             </div>
           )}
         </>
