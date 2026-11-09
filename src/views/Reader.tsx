@@ -5,7 +5,7 @@ import { Icon } from '../icons'
 import { useApp } from '../store'
 import { api, errText, type MsgFull } from '../lib/api'
 import { addrText, fullTime, size } from '../lib/format'
-import { Avatar, Empty, Kojoo, Loader, useMenu } from '../ui'
+import { Avatar, Empty, Kojoo, Loader, TipText, useMenu } from '../ui'
 import { laterOptions, mailMenu } from './MailList'
 import { IS_MAC } from '../lib/platform'
 import { L, EN, catLabel } from '../lib/i18n'
@@ -59,9 +59,9 @@ export default function Reader() {
           <Avatar name={m.fromName} email={m.fromAddr} />
           <div style={{ fontSize: 13, lineHeight: 1.45, minWidth: 0, userSelect: 'text' }}>
             <b>{m.fromName || m.fromAddr}</b> {m.fromName && <span style={{ color: 'var(--ter)' }}>&lt;{m.fromAddr}&gt;</span>}
-            <div className="truncate" style={{ fontSize: 12, color: 'var(--ter)' }}>
+            <TipText className="truncate" style={{ fontSize: 12, color: 'var(--ter)' }}>
               {L('发给 ', 'To ')}{acc ? acc.label || acc.email : ''}{m.to.length > 0 && ` · ${m.to.map(addrText).join(L('，', ', '))}`}{m.cc.length > 0 && ` · ${L('抄送', 'Cc')} ${m.cc.map((a) => a.name || a.email).join(L('，', ', '))}`}
-            </div>
+            </TipText>
           </div>
           <span className="mono" style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ter)', whiteSpace: 'nowrap' }}>{fullTime(m.date)}</span>
         </div>
@@ -189,7 +189,7 @@ function AiCard({ m }: { m: MsgFull }) {
       <div className="ai-strip">
         {running ? <span style={{ color: '#F2A487', display: 'inline-flex' }}><Kojoo width={26} stroke={8} /></span> : <Icon name="sparkle" style={{ color: '#F2A487' }} />}
         <span className="t">{L('批注', 'AI notes')}</span>
-        <span className="s truncate">{running ? L('正在读这封邮件…', 'Reading this email…') : ai!.reason || ai!.summary}</span>
+        <TipText className="s truncate">{running ? L('正在读这封邮件…', 'Reading this email…') : ai!.reason || ai!.summary}</TipText>
         {!running && ai!.model && <span className="model">{ai!.model.replace(/^claude-/, '').replace(/-(\d)-(\d)$/, '-$1.$2')}</span>}
         {!running && <button className="tb" aria-label={collapsed ? L('展开批注', 'Expand AI notes') : L('收起批注', 'Collapse AI notes')} onClick={() => setCollapsed(!collapsed)}><Icon name={collapsed ? 'down' : 'up'} size={15} /></button>}
       </div>
@@ -202,7 +202,7 @@ function AiCard({ m }: { m: MsgFull }) {
           {ai!.facts.length > 0 && (
             <div className="facts">
               {ai!.facts.map((f, i) => (
-                <div key={i} className={`fact sq${/期望|截止|期限|due|deadline/i.test(f.k) ? ' hl' : ''}`}><div className="k">{f.k}</div><div className="v" title={f.v}>{f.v}</div></div>
+                <div key={i} className={`fact sq${/期望|截止|期限|due|deadline/i.test(f.k) ? ' hl' : ''}`}><div className="k">{f.k}</div><TipText className="v">{f.v}</TipText></div>
               ))}
             </div>
           )}

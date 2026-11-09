@@ -143,6 +143,13 @@ a { color: var(--navy); }
 /* 贴着窗口底边、右边的按钮：提示往上、靠右弹，免得撑出滚动条（侧栏底部的设置按钮） */
 [data-tip][data-tip-pos="up"]:hover::after { top: auto; bottom: calc(100% + 6px); left: auto; right: 0; transform: none; }
 @keyframes tipin { from { opacity: 0; } to { opacity: 1; } }
+/* 文字被截断时的全文提示：挂在 body 上，长句子换行、左右夹在窗口内（见 ui.tsx 的 TipText） */
+.tip-box {
+  position: fixed; z-index: 100; max-width: min(360px, calc(100vw - 16px)); padding: 6px 9px; border-radius: 8px;
+  background: #0F1C2A; color: #fff; font-size: 12px; line-height: 1.45; white-space: normal; word-break: break-word;
+  pointer-events: none; box-shadow: 0 6px 16px -6px rgba(15, 28, 42, .5); animation: tipin .12s ease .4s both;
+}
+:root[data-theme="dark"] .tip-box { background: #ECE7DD; color: #14181E; }
 
 /* 分段控件 */
 .seg { display: flex; padding: 2px; border-radius: 8px; background: var(--well); box-shadow: inset 0 .5px 1px rgba(15, 28, 42, .08); }

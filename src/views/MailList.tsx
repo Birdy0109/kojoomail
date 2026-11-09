@@ -4,7 +4,7 @@ import { Icon } from '../icons'
 import { useApp } from '../store'
 import { api, errText, FOCUS_CATS, type Draft, type Folder, type MsgLite } from '../lib/api'
 import { dayGroup, shortTime, who } from '../lib/format'
-import { Avatar, Empty, Kojoo, Seg, Sheet, useMenu, type MenuItem } from '../ui'
+import { Avatar, Empty, Kojoo, Seg, Sheet, TipText, useMenu, type MenuItem } from '../ui'
 import { folderName } from './Sidebar'
 import { catLabel, L, plural } from '../lib/i18n'
 
@@ -277,7 +277,7 @@ function AskCard() {
   if (!a) {
     return (
       <button className="ask-try" onClick={() => s.askAi(s.search)}>
-        <Icon name="sparkle" size={15} /><span className="grow truncate">{L(`让 AI 从邮件里找答案：「${s.search}」`, `Ask AI to answer from your emails: "${s.search}"`)}</span><Icon name="right" size={13} />
+        <Icon name="sparkle" size={15} /><TipText className="grow truncate">{L(`让 AI 从邮件里找答案：「${s.search}」`, `Ask AI to answer from your emails: "${s.search}"`)}</TipText><Icon name="right" size={13} />
       </button>
     )
   }
